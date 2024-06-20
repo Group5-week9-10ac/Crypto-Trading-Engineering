@@ -1,10 +1,11 @@
-import os
 import json
 import psycopg2
 from confluent_kafka import Consumer, KafkaError, KafkaException
 from backend.src.config.config import KAFKA_BOOTSTRAP_SERVERS, KAFKA_GROUP_ID
 from dotenv import load_dotenv
 from services.backtest_service import initiate_backtest
+import os
+import time
 
 # Load environment variables from .env file
 load_dotenv()
@@ -42,10 +43,15 @@ def backtest_consumer():
                 scene = json.loads(msg.value().decode('utf-8'))
                 process_scene(scene)
 
+            # Commit offsets manually after processing each message
+            consumer.commit()
+
     except KafkaException as e:
         print(f"Kafka error occurred: {e}")
+        # Implement retry or alert mechanism here
     except Exception as e:
         print(f"Failed to consume messages: {e}")
+        # Implement retry or alert mechanism here
     finally:
         consumer.close()
 
@@ -72,6 +78,9 @@ def process_scene(scene):
 
     except ValueError as e:
         print(f"Scene validation failed: {e}")
+    except Exception as e:
+        print(f"Failed to process scene: {e}")
+        # Implement retry or alert mechanism here
 
 def check_existing_results(parameters):
     """Check if backtest results already exist in the database."""
