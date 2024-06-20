@@ -2,7 +2,7 @@ import json
 from typing import List, Dict
 from confluent_kafka import Producer, KafkaException
 from confluent_kafka.admin import NewTopic
-from config.kafka_config import KAFKA_BOOTSTRAP_SERVERS
+from backend.src.config.config import KAFKA_BOOTSTRAP_SERVERS
 
 def delivery_report(err: KafkaException, msg: str) -> None:
     """Delivery report callback."""
