@@ -8,7 +8,7 @@ import os
 load_dotenv()
 
 def get_db_connection():
-    """Get a database connection."""
+    """Get a database connection to AWS RDS."""
     return pymysql.connect(
         host=os.getenv('DB_HOST'),
         user=os.getenv('DB_USER'),
