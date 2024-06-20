@@ -1,19 +1,24 @@
 import pymysql
 import json
 from typing import Dict, Any
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from .env file
+load_dotenv()
 
 def get_db_connection():
     """Get a database connection."""
     return pymysql.connect(
-        host='your-db-host',
-        user='your-db-user',
-        password='your-db-password',
-        db='your-db-name',
+        host=os.getenv('DB_HOST'),
+        user=os.getenv('DB_USER'),
+        password=os.getenv('DB_PASSWORD'),
+        db=os.getenv('DB_NAME'),
         charset='utf8mb4',
         cursorclass=pymysql.cursors.DictCursor
     )
 
-def fetch_backtest_results(backtest_id: int, parameters: Dict[str, Any]):
+def fetch_backtest_results(backtest_id: int, parameters: Dict[str, Any]) -> Dict[str, Any]:
     """Fetch existing backtest results from the database."""
     connection = get_db_connection()
     try:
