@@ -1,6 +1,6 @@
 from typing import List
 from confluent_kafka.admin import AdminClient, NewTopic, KafkaException
-from config.kafka_config import KAFKA_BOOTSTRAP_SERVERS
+from backend.src.config.config import KAFKA_BOOTSTRAP_SERVERS
 
 def create_kafka_topics(topic_names: List[str]) -> None:
     """Create Kafka topics if they do not exist."""
