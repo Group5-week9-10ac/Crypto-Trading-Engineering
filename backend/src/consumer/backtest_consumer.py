@@ -1,9 +1,22 @@
+import os
 import json
 import psycopg2
 from confluent_kafka import Consumer, KafkaError, KafkaException
 from backend.src.config.config import KAFKA_BOOTSTRAP_SERVERS, KAFKA_GROUP_ID
-from config.config import DATABASE_CONFIG
+from dotenv import load_dotenv
 from services.backtest_service import initiate_backtest
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Retrieve database configuration from environment variables
+DATABASE_CONFIG = {
+    'host': os.getenv('DB_HOST'),
+    'database': os.getenv('DB_NAME'),
+    'user': os.getenv('DB_USER'),
+    'password': os.getenv('DB_PASSWORD'),
+    'port': os.getenv('DB_PORT', '5432')  # Adjust port if necessary
+}
 
 def backtest_consumer():
     """Kafka consumer to process backtest parameters."""
