@@ -1,11 +1,11 @@
 import json
 import psycopg2
+from psycopg2 import pool
 from confluent_kafka import Consumer, KafkaError, KafkaException
 from backend.src.config.config import KAFKA_BOOTSTRAP_SERVERS, KAFKA_GROUP_ID
 from dotenv import load_dotenv
 from services.backtest_service import initiate_backtest
 import os
-import time
 
 # Load environment variables from .env file
 load_dotenv()
@@ -18,6 +18,21 @@ DATABASE_CONFIG = {
     'password': os.getenv('DB_PASSWORD'),
     'port': os.getenv('DB_PORT', '5432')  # Adjust port if necessary
 }
+
+# Initialize connection pool for PostgreSQL
+db_pool = psycopg2.pool.SimpleConnectionPool(
+    minconn=1,
+    maxconn=10,
+    **DATABASE_CONFIG
+)
+
+def get_db_connection():
+    """Get a connection from the connection pool."""
+    return db_pool.getconn()
+
+def release_db_connection(conn):
+    """Release the connection back to the pool."""
+    db_pool.putconn(conn)
 
 def backtest_consumer():
     """Kafka consumer to process backtest parameters."""
@@ -84,44 +99,47 @@ def process_scene(scene):
 
 def check_existing_results(parameters):
     """Check if backtest results already exist in the database."""
-    conn = psycopg2.connect(**DATABASE_CONFIG)
-    cursor = conn.cursor()
-    query = """
-    SELECT COUNT(*) FROM backtest_results
-    WHERE parameters = %s
-    """
-    cursor.execute(query, (json.dumps(parameters),))
-    count = cursor.fetchone()[0]
-    cursor.close()
-    conn.close()
-    return count > 0
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            query = """
+            SELECT COUNT(*) FROM backtest_results
+            WHERE parameters = %s
+            """
+            cursor.execute(query, (json.dumps(parameters),))
+            count = cursor.fetchone()[0]
+        return count > 0
+    finally:
+        release_db_connection(conn)
 
 def fetch_results(parameters):
     """Fetch existing backtest results from the database."""
-    conn = psycopg2.connect(**DATABASE_CONFIG)
-    cursor = conn.cursor()
-    query = """
-    SELECT results FROM backtest_results
-    WHERE parameters = %s
-    """
-    cursor.execute(query, (json.dumps(parameters),))
-    results = cursor.fetchone()[0]
-    cursor.close()
-    conn.close()
-    return results
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            query = """
+            SELECT results FROM backtest_results
+            WHERE parameters = %s
+            """
+            cursor.execute(query, (json.dumps(parameters),))
+            results = cursor.fetchone()[0]
+        return results
+    finally:
+        release_db_connection(conn)
 
 def store_results(backtest_id, parameters, results):
     """Store new backtest results in the database."""
-    conn = psycopg2.connect(**DATABASE_CONFIG)
-    cursor = conn.cursor()
-    query = """
-    INSERT INTO backtest_results (backtest_id, parameters, results)
-    VALUES (%s, %s, %s)
-    """
-    cursor.execute(query, (backtest_id, json.dumps(parameters), json.dumps(results)))
-    conn.commit()
-    cursor.close()
-    conn.close()
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            query = """
+            INSERT INTO backtest_results (backtest_id, parameters, results)
+            VALUES (%s, %s, %s)
+            """
+            cursor.execute(query, (backtest_id, json.dumps(parameters), json.dumps(results)))
+            conn.commit()
+    finally:
+        release_db_connection(conn)
 
 if __name__ == "__main__":
     backtest_consumer()
