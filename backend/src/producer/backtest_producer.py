@@ -1,6 +1,6 @@
 import json
 from typing import List, Dict
-from confluent_kafka import Producer, KafkaException, Message, KafkaError
+from confluent_kafka import Producer, KafkaException, Message
 from backend.src.config.config import KAFKA_BOOTSTRAP_SERVERS
 
 def delivery_report(err: KafkaException, msg: Message) -> None:
@@ -16,8 +16,8 @@ def produce_backtest_parameters(scenes: List[Dict[str, any]]) -> None:
     producer = Producer({
         "bootstrap.servers": KAFKA_BOOTSTRAP_SERVERS,
         # Additional Kafka producer configurations for reliability and scalability
-        "acks": "all",  # Ensure all replicas acknowledge message delivery
-        "retries": 3,   # Retry failed message delivery up to 3 times
+        "acks": "all",            # Ensure all replicas acknowledge message delivery
+        "retries": 3,             # Retry failed message delivery up to 3 times
         "delivery.timeout.ms": 10000  # Timeout for message delivery
     })
 
@@ -41,6 +41,9 @@ def produce_backtest_parameters(scenes: List[Dict[str, any]]) -> None:
     finally:
         producer.flush()  # Ensure all messages are delivered before closing producer
 
+    # Close the producer after flushing all messages
+    producer.close()
+
 # Example usage
 if __name__ == "__main__":
     scenes = [
@@ -50,3 +53,4 @@ if __name__ == "__main__":
     ]
 
     produce_backtest_parameters(scenes)
+
