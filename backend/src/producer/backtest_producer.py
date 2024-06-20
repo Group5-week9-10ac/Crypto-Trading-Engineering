@@ -1,19 +1,25 @@
 import json
 from typing import List, Dict
-from confluent_kafka import Producer, KafkaException
-from confluent_kafka.admin import NewTopic
+from confluent_kafka import Producer, KafkaException, Message, KafkaError
 from backend.src.config.config import KAFKA_BOOTSTRAP_SERVERS
 
-def delivery_report(err: KafkaException, msg: str) -> None:
+def delivery_report(err: KafkaException, msg: Message) -> None:
     """Delivery report callback."""
     if err is not None:
         print(f"Message delivery failed: {err}")
+        # Implement retry mechanism or error handling strategy here
     else:
         print(f"Message delivered to {msg.topic()} [{msg.partition()}]")
 
 def produce_backtest_parameters(scenes: List[Dict[str, any]]) -> None:
     """Publish scenes (backtest parameters) to Kafka topic."""
-    producer = Producer({"bootstrap.servers": KAFKA_BOOTSTRAP_SERVERS})
+    producer = Producer({
+        "bootstrap.servers": KAFKA_BOOTSTRAP_SERVERS,
+        # Additional Kafka producer configurations for reliability and scalability
+        "acks": "all",  # Ensure all replicas acknowledge message delivery
+        "retries": 3,   # Retry failed message delivery up to 3 times
+        "delivery.timeout.ms": 10000  # Timeout for message delivery
+    })
 
     try:
         # Produce each scene as a JSON-encoded message
@@ -26,12 +32,14 @@ def produce_backtest_parameters(scenes: List[Dict[str, any]]) -> None:
         
     except KafkaException as kafka_exception:
         print(f"Kafka Error: {kafka_exception}")
+        # Implement error handling strategy, such as retry logic or logging
     
     except Exception as e:
         print(f"Failed to publish scenes to Kafka: {e}")
+        # Handle other exceptions as needed
     
     finally:
-        producer.flush()
+        producer.flush()  # Ensure all messages are delivered before closing producer
 
 # Example usage
 if __name__ == "__main__":

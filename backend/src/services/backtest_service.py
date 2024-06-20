@@ -1,54 +1,123 @@
 import json
 from typing import Dict, Any
 import backtrader as bt 
-from db.db import get_db_connection, fetch_backtest_results, store_backtest_results
+import psycopg2
+from confluent_kafka import Consumer, KafkaError, KafkaException
+from backend.src.config.config import KAFKA_BOOTSTRAP_SERVERS, KAFKA_GROUP_ID
+from config.config import DATABASE_CONFIG
+from services.backtest_service import initiate_backtest
 
-def process_scene(scene: Dict[str, Any]):
+def backtest_consumer():
+    """Kafka consumer to process backtest parameters."""
+    consumer = Consumer({
+        'bootstrap.servers': KAFKA_BOOTSTRAP_SERVERS,
+        'group.id': KAFKA_GROUP_ID,
+        'auto.offset.reset': 'earliest'
+    })
+
+    consumer.subscribe(['backtest_parameters'])
+
+    try:
+        while True:
+            msg = consumer.poll(1.0)
+            if msg is None:
+                continue
+            if msg.error():
+                if msg.error().code() == KafkaError._PARTITION_EOF:
+                    print(f"Reached end of partition: {msg.partition()}")
+                else:
+                    raise KafkaException(msg.error())
+            else:
+                scene = json.loads(msg.value().decode('utf-8'))
+                process_scene(scene)
+
+    except KafkaException as e:
+        print(f"Kafka error occurred: {e}")
+        # Implement retry mechanism or error handling strategy for Kafka errors
+    
+    except Exception as e:
+        print(f"Failed to consume messages: {e}")
+        # Handle other exceptions as needed
+    
+    finally:
+        consumer.close()
+
+def process_scene(scene):
     """Process and validate the scene for backtesting."""
     try:
-        # Extract and validate parameters
         backtest_id = scene.get("backtest_id")
         parameters = scene.get("parameters")
 
         if not backtest_id or not parameters:
             raise ValueError("Invalid scene: Missing required parameters")
 
-        # Add more validation as necessary
         print(f"Processing backtest ID {backtest_id} with parameters: {parameters}")
 
-        # Initiate backtest process
-        initiate_backtest(backtest_id, parameters)
+        if check_existing_results(parameters):
+            print("Existing results found. Fetching from database...")
+            results = fetch_results(parameters)
+        else:
+            print("No existing results. Initiating backtest...")
+            results = initiate_backtest(backtest_id, parameters)
+            store_results(backtest_id, parameters, results)
+
+        print(f"Results: {results}")
 
     except ValueError as e:
         print(f"Scene validation failed: {e}")
 
-def initiate_backtest(backtest_id: int, parameters: Dict[str, Any]):
-    """Initiate the backtest process using provided parameters."""
-    # Check if results already exist
-    existing_results = fetch_backtest_results(backtest_id, parameters)
-    
-    if existing_results:
-        print(f"Results already exist for backtest ID {backtest_id}. Fetching from database.")
-        return existing_results
+def check_existing_results(parameters):
+    """Check if backtest results already exist in the database."""
+    try:
+        conn = psycopg2.connect(**DATABASE_CONFIG)
+        cursor = conn.cursor()
+        query = """
+        SELECT COUNT(*) FROM backtest_results
+        WHERE parameters = %s
+        """
+        cursor.execute(query, (json.dumps(parameters),))
+        count = cursor.fetchone()[0]
+        cursor.close()
+        conn.close()
+        return count > 0
+    except psycopg2.Error as e:
+        print(f"Database error: {e}")
+        return False
 
-    # If not, run the backtest
-    print(f"Running new backtest for ID {backtest_id} with parameters: {parameters}")
-    
-    # Placeholder for actual backtest logic using Backtrader or any other framework
-    cerebro = bt.Cerebro()
-    # Add your data feed and strategy to cerebro here
-    # ...
-    
-    result = cerebro.run()
-    
-    # Extract and format the results
-    backtest_results = {
-        "return": result[0].analyzers.returns.get_analysis(),  # Example, adjust as necessary
-        "number_of_trades": result[0].analyzers.trades.get_analysis(),
-        # Add other metrics
-    }
-    
-    # Store results in the database
-    store_backtest_results(backtest_id, parameters, backtest_results)
+def fetch_results(parameters):
+    """Fetch existing backtest results from the database."""
+    try:
+        conn = psycopg2.connect(**DATABASE_CONFIG)
+        cursor = conn.cursor()
+        query = """
+        SELECT results FROM backtest_results
+        WHERE parameters = %s
+        """
+        cursor.execute(query, (json.dumps(parameters),))
+        results = cursor.fetchone()[0]
+        cursor.close()
+        conn.close()
+        return results
+    except psycopg2.Error as e:
+        print(f"Database error: {e}")
+        return None
 
-    return backtest_results
+def store_results(backtest_id, parameters, results):
+    """Store new backtest results in the database."""
+    try:
+        conn = psycopg2.connect(**DATABASE_CONFIG)
+        cursor = conn.cursor()
+        query = """
+        INSERT INTO backtest_results (backtest_id, parameters, results)
+        VALUES (%s, %s, %s)
+        """
+        cursor.execute(query, (backtest_id, json.dumps(parameters), json.dumps(results)))
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except psycopg2.Error as e:
+        print(f"Database error: {e}")
+
+if __name__ == "__main__":
+    backtest_consumer()
+
