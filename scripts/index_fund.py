@@ -26,14 +26,7 @@ def get_top_10_coins(data):
     top_10 = sorted(data, key=lambda x: x['market_cap'], reverse=True)[:10]
     return top_10
 
-# Fetch and process the data
-crypto_data = fetch_crypto_data()
-filtered_data = filter_stable_coins(crypto_data)
-top_10_coins = get_top_10_coins(filtered_data)
 
-# Print the top 10 coins by market cap
-for coin in top_10_coins:
-    print(f"{coin['name']} - Market Cap: {coin['market_cap']}")
 
 def create_index(top_10_coins):
     total_market_cap = sum(coin['market_cap'] for coin in top_10_coins)
@@ -47,9 +40,7 @@ def rebalance_index():
     index = create_index(top_10_coins)
     return index
 
-# Initialize the index
-index = rebalance_index()
-print("Initial Index Weights:", index)
+
 
 # # Schedule rebalancing every month
 # from apscheduler.schedulers.background import BackgroundScheduler
