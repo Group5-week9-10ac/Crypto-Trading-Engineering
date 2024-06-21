@@ -2,6 +2,7 @@ import backtrader as bt
 import datetime
 import json
 import math
+import pandas as pd
 
 # Metrics analyzer
 class MetricsAnalyzer(bt.Analyzer):
@@ -148,6 +149,11 @@ class StochasticOscillatorStrategy(bt.Strategy):
             if self.stoch.lines.percK[0] > 80:
                 self.sell()
 
+def save_results_to_csv(results, filename):
+    df = pd.DataFrame(results)
+    df.to_csv(filename, index=False)
+    print(f"Results saved to {filename}")
+
 def run_backtest(strategy, data_path, fromdate, todate, cash=10000.0, indicator_params=None):
     cerebro = bt.Cerebro()
     cerebro.addstrategy(strategy, **(indicator_params or {}))
@@ -184,10 +190,7 @@ def run_backtest(strategy, data_path, fromdate, todate, cash=10000.0, indicator_
     print(f"Max Drawdown: {metrics.strategy.metrics['max_drawdown']:.2f}%")
     print(f"Sharpe Ratio: {metrics.strategy.metrics['sharpe_ratio']:.2f}\n")
 
-    try:
-        cerebro.plot(style='candle', volume=False, barup='lightgreen', bardown='red')
-    except Exception as e:
-        print(f"An error occurred while plotting: {e}")
+    return metrics.strategy.metrics
 
 # Load configuration
 with open('backtest_config.json', 'r') as f:
@@ -199,10 +202,16 @@ todate = datetime.datetime.strptime(config['todate'], '%Y-%m-%d')
 cash = config['cash']
 
 # Run backtests for all strategies defined in the configuration
+results = []
 for strategy_conf in config['strategies']:
     strategy_name = strategy_conf['name']
     params = strategy_conf.get('params', {})
     strategy = globals()[strategy_name]
     
     print(f"Running backtest for {strategy_name}")
-    run_backtest(strategy, data_path, fromdate, todate, cash, params)
+    metrics = run_backtest(strategy, data_path, fromdate, todate, cash, params)
+    metrics['strategy'] = strategy_name
+    results.append(metrics)
+
+# Save results to CSV
+save_results_to_csv(results, 'backtest_results.csv')

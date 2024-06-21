@@ -1,7 +1,7 @@
 import yfinance as yf
 from pandas_datareader import data as pdr
-from backend.src.backtest.crypto_data.config import CRYPTO_SYMBOLS, START_DATE, END_DATE
-from backend.src.backtest.crypto_data.utils import save_data, create_folder
+from backend.src.analysis.crypto_data.config import CRYPTO_SYMBOLS, START_DATE, END_DATE
+from backend.src.analysis.crypto_data.utils import save_data, create_folder
 import pandas as pd
 
 def download_data(symbol: str, start_date: str, end_date: str):
