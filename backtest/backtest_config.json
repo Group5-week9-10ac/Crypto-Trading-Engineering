@@ -1,5 +1,5 @@
 {
-    "data_path": "../data/SPCE.csv",
+    "data_path": "../data/USDT-USD.csv",
     "cash": 10000,
     "date_ranges": [
         {

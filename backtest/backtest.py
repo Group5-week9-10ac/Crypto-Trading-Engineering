@@ -3,7 +3,7 @@ import datetime
 import json
 import backtrader as bt
 
-# Define strategies
+# Define strategies (unchanged)
 class SMAStrategy(bt.Strategy):
     params = (('period', 15),)
     def __init__(self):
@@ -46,7 +46,6 @@ class RSIStrategy(bt.Strategy):
             if self.rsi > 70:
                 self.sell()
 
-
 class BollingerBandsStrategy(bt.Strategy):
     params = (('period', 20), ('devfactor', 2.0))
     def __init__(self):
@@ -73,17 +72,25 @@ class AroonOscillatorStrategy(bt.Strategy):
 
 class StochasticOscillatorStrategy(bt.Strategy):
     params = (('percK', 14), ('percD', 3))
+
     def __init__(self):
-        self.stoch = bt.indicators.Stochastic(self.data, period=self.params.percK, period_dfast=self.params.percD)
+        self.stochastic = bt.indicators.Stochastic(
+            self.data,
+            period=self.params.percK,
+            period_dfast=self.params.percD
+        )
+    
     def next(self):
+        if len(self.data) < max(self.params.percK, self.params.percD):
+            return
         if not self.position:
-            if self.stoch.percK[0] < 20:
+            if self.stochastic.percK[0] > self.stochastic.percD[0]:
                 self.buy()
         else:
-            if self.stoch.percK[0] > 80:
+            if self.stochastic.percK[0] < self.stochastic.percD[0]:
                 self.sell()
 
-# Metrics Analyzer
+# Metrics Analyzer (unchanged)
 class MetricsAnalyzer(bt.Analyzer):
     def __init__(self):
         self.total_return = 0.0
@@ -117,47 +124,17 @@ class MetricsAnalyzer(bt.Analyzer):
             self.sharpe_ratio = sharpe_ratio_analysis['sharperatio']
 
 
-        
-def run_backtest(strategy_class, strategy_params, data_path, fromdate, todate, cash=10000.0):
+def run_backtest(strategy_class, strategy_params, data_path, fromdate, todate, cash):
     cerebro = bt.Cerebro()
-
-    # Add the strategy class with its parameters
     cerebro.addstrategy(strategy_class, **strategy_params)
-
-    # Load data from CSV file
-    data = bt.feeds.GenericCSVData(
-        dataname=data_path,
-        nullvalue=0.0,
-        dtformat=('%Y-%m-%d'),
-        datetime=0, 
-        open=1,
-        high=2,
-        low=3,
-        close=4,
-        volume=5,
-        adjclose=6,
-        fromdate=fromdate,
-        todate=todate
-    )
-    
+    data = bt.feeds.GenericCSVData(dataname=data_path, nullvalue=0.0, dtformat=('%Y-%m-%d'), datetime=0, open=1, high=2, low=3, close=4, volume=5, adjclose=6, fromdate=fromdate, todate=todate)
     cerebro.adddata(data)
     cerebro.broker.setcash(cash)
-
-    # Add analyzers
     cerebro.addanalyzer(bt.analyzers.TradeAnalyzer, _name='trade_analyzer')
     cerebro.addanalyzer(bt.analyzers.DrawDown, _name='drawdown')
     cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='sharpe_ratio')
     cerebro.addanalyzer(MetricsAnalyzer, _name='metrics')
-
-    print(f"Running backtest for {strategy_class.__name__} with params {strategy_params}")
-    
-    try:
-        result = cerebro.run()
-    except Exception as e:
-        print(f"Exception during backtesting: {e}")
-        return
-    
-    # Retrieve metrics from MetricsAnalyzer
+    result = cerebro.run()
     metrics = result[0].analyzers.metrics
 
     # Print and display results
@@ -177,11 +154,13 @@ def run_backtest(strategy_class, strategy_params, data_path, fromdate, todate, c
         print(f"An error occurred while plotting: {e}")
 
 if __name__ == "__main__":
+    # Prompt for user input
+    data_path = input("Enter data path: ").strip()
+    cash = float(input("Enter starting cash amount: ").strip())
+
+    # Load other configurations from JSON (unchanged)
     with open('backtest_config.json', 'r') as f:
         config = json.load(f)
-
-    data_path = config['data_path']
-    cash = config['cash']
 
     for date_range in config['date_ranges']:
         fromdate = datetime.datetime.strptime(date_range['fromdate'], '%Y-%m-%d')
