@@ -1,0 +1,44 @@
+{
+    "data_path": "../data/USDT-USD.csv",
+    "cash": 10000,
+    "date_ranges": [
+        {
+            "fromdate": "2023-06-20",
+            "todate": "2024-06-17"
+        }
+    ],
+    "strategies": [
+        {
+            "name": "SMAStrategy",
+            "params": {
+                "period": {"range": [10, 20, 30]}
+            }
+        },
+        {
+            "name": "EMAStrategy",
+            "params": {
+                "period": {"range": [10, 20, 30]}
+            }
+        },
+        {
+            "name": "BollingerBandsStrategy",
+            "params": {
+                "period": {"range": [20, 25]},
+                "devfactor": {"range": [2.0, 2.5]}
+            }
+        },
+        {
+            "name": "AroonOscillatorStrategy",
+            "params": {
+                "period": {"range": [25, 30]}
+            }
+        },
+        {
+            "name": "StochasticOscillatorStrategy",
+            "params": {
+                "percK": {"range": [14, 20]},
+                "percD": {"range": [3, 5]}
+            }
+        }
+    ]
+}
