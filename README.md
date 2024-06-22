@@ -176,7 +176,7 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/t
 
 > 👤 **Nyamusi Ontita**
 >
-> - [Email](mailto:nyamusiontita@gmail.com), [GitHub](https://github.com/MoraaOntita), [LinkedIn](https://www.linkedin.com/in/moraa-ontita2721/)
+> - [Email](mailto:nyamusiontita@gmail.com), [GitHub](https://github.com/MoraaOntita), [LinkedIn](https://www.linkedin.com/in/moraa-ontita-b16a49205/)
 
 > 👤 **Jabez Kassa**
 >
