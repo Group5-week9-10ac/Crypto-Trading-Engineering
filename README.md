@@ -81,7 +81,7 @@
 > The detailed use and implementation of the pipelines using Apache Airflow, pipeline summary and interaction, kafka clusters, interaction with the topics on the kafka clusters, front-end images and usage can all be found in this screenshots folder as image files.
 
 
-### Installing this application
+### Installation
 
 - First clone this repo to your local machine using the command below
 
