@@ -2,93 +2,114 @@ from itertools import product
 import datetime
 import json
 import backtrader as bt
+import matplotlib.pyplot as plt
 
-# Define strategies (unchanged)
+# Define Strategies
 class SMAStrategy(bt.Strategy):
-    params = (('period', 15),)
+    params = (('period', 15), ('stop_loss', 0.02))
+
     def __init__(self):
         self.sma = bt.indicators.SimpleMovingAverage(self.data.close, period=self.params.period)
+        self.atr = bt.indicators.ATR(self.data, period=14)
+
     def next(self):
         if len(self.data) < self.params.period:
             return
         if not self.position:
             if self.data.close[0] > self.sma[0]:
-                self.buy()
+                size = int(self.broker.cash / self.data.close[0])
+                self.buy(size=size)
+                self.stop_price = self.data.close[0] - self.atr[0] * self.params.stop_loss
         else:
-            if self.data.close[0] < self.sma[0]:
-                self.sell()
+            if self.data.close[0] < self.sma[0] or self.data.close[0] < self.stop_price:
+                self.sell(size=self.position.size)
 
 class EMAStrategy(bt.Strategy):
-    params = (('period', 15),)
+    params = (('period', 15), ('stop_loss', 0.02))
+
     def __init__(self):
         self.ema = bt.indicators.ExponentialMovingAverage(self.data.close, period=self.params.period)
+        self.atr = bt.indicators.ATR(self.data, period=14)
+
     def next(self):
         if len(self.data) < self.params.period:
             return
         if not self.position:
             if self.data.close[0] > self.ema[0]:
-                self.buy()
+                size = int(self.broker.cash / self.data.close[0])
+                self.buy(size=size)
+                self.stop_price = self.data.close[0] - self.atr[0] * self.params.stop_loss
         else:
-            if self.data.close[0] < self.ema[0]:
-                self.sell()
+            if self.data.close[0] < self.ema[0] or self.data.close[0] < self.stop_price:
+                self.sell(size=self.position.size)
 
 class RSIStrategy(bt.Strategy):
-    params = (('rsi_period', 14),)
-    
+    params = (('rsi_period', 14), ('stop_loss', 0.02))
+
     def __init__(self):
         self.rsi = bt.indicators.RSI(self.data.close, period=self.params.rsi_period)
-    
+        self.atr = bt.indicators.ATR(self.data, period=14)
+
     def next(self):
         if not self.position:
-            if self.rsi < 30:
-                self.buy()
+            if self.rsi[0] < 30:
+                size = int(self.broker.cash / self.data.close[0])
+                self.buy(size=size)
+                self.stop_price = self.data.close[0] - self.atr[0] * self.params.stop_loss
         else:
-            if self.rsi > 70:
-                self.sell()
+            if self.rsi[0] > 70 or self.data.close[0] < self.stop_price:
+                self.sell(size=self.position.size)
 
 class BollingerBandsStrategy(bt.Strategy):
-    params = (('period', 20), ('devfactor', 2.0))
+    params = (('period', 20), ('devfactor', 2.0), ('stop_loss', 0.02))
+
     def __init__(self):
-        self.bbands = bt.indicators.BollingerBands(period=self.params.period, devfactor=self.params.devfactor)
+        self.bbands = bt.indicators.BollingerBands(self.data.close, period=self.params.period, devfactor=self.params.devfactor)
+        self.atr = bt.indicators.ATR(self.data, period=14)
+
     def next(self):
         if not self.position:
-            if self.data.close[0] < self.bbands.bot[0]:
-                self.buy()
+            if self.data.close[0] < self.bbands.lines.bot[0]:
+                size = int(self.broker.cash / self.data.close[0])
+                self.buy(size=size)
+                self.stop_price = self.data.close[0] - self.atr[0] * self.params.stop_loss
         else:
-            if self.data.close[0] > self.bbands.top[0]:
-                self.sell()
+            if self.data.close[0] > self.bbands.lines.top[0] or self.data.close[0] < self.stop_price:
+                self.sell(size=self.position.size)
 
 class AroonOscillatorStrategy(bt.Strategy):
-    params = (('period', 25),)
+    params = (('period', 25), ('stop_loss', 0.02))
+
     def __init__(self):
         self.aroon = bt.indicators.AroonOscillator(self.data, period=self.params.period)
+        self.atr = bt.indicators.ATR(self.data, period=14)
+
     def next(self):
         if not self.position:
             if self.aroon[0] > 0:
-                self.buy()
+                size = int(self.broker.cash / self.data.close[0])
+                self.buy(size=size)
+                self.stop_price = self.data.close[0] - self.atr[0] * self.params.stop_loss
         else:
-            if self.aroon[0] < 0:
-                self.sell()
+            if self.aroon[0] < 0 or self.data.close[0] < self.stop_price:
+                self.sell(size=self.position.size)
 
 class StochasticOscillatorStrategy(bt.Strategy):
-    params = (('percK', 14), ('percD', 3))
+    params = (('percK', 14), ('percD', 3), ('stop_loss', 0.02))
 
     def __init__(self):
-        self.stochastic = bt.indicators.Stochastic(
-            self.data,
-            period=self.params.percK,
-            period_dfast=self.params.percD
-        )
-    
+        self.stochastic = bt.indicators.Stochastic(self.data, period=self.params.percK, period_dfast=self.params.percD)
+        self.atr = bt.indicators.ATR(self.data, period=14)
+
     def next(self):
-        if len(self.data) < max(self.params.percK, self.params.percD):
-            return
         if not self.position:
             if self.stochastic.percK[0] > self.stochastic.percD[0]:
-                self.buy()
+                size = int(self.broker.cash / self.data.close[0])
+                self.buy(size=size)
+                self.stop_price = self.data.close[0] - self.atr[0] * self.params.stop_loss
         else:
-            if self.stochastic.percK[0] < self.stochastic.percD[0]:
-                self.sell()
+            if self.stochastic.percK[0] < self.stochastic.percD[0] or self.data.close[0] < self.stop_price:
+                self.sell(size=self.position.size)
 
 # Metrics Analyzer (unchanged)
 class MetricsAnalyzer(bt.Analyzer):
@@ -134,32 +155,33 @@ def run_backtest(strategy_class, strategy_params, data_path, fromdate, todate, c
     cerebro.addanalyzer(bt.analyzers.DrawDown, _name='drawdown')
     cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='sharpe_ratio')
     cerebro.addanalyzer(MetricsAnalyzer, _name='metrics')
-    result = cerebro.run()
-    metrics = result[0].analyzers.metrics
 
-    # Print and display results
-    print(f"Starting Portfolio Value: {cash}")
-    print(f"Ending Portfolio Value: {cerebro.broker.getvalue():.2f}")
-    print(f"Total Return: {metrics.total_return:.2f}%")
-    print(f"Number of Trades: {metrics.trades}")
-    print(f"Winning Trades: {metrics.winning_trades}")
-    print(f"Losing Trades: {metrics.losing_trades}")
-    print(f"Max Drawdown: {metrics.max_drawdown:.2f}%")
-    print(f"Sharpe Ratio: {metrics.sharpe_ratio:.2f}")
-
-    # Plot the strategy
     try:
+        result = cerebro.run()
+        metrics = result[0].analyzers.metrics
+
+        # Print and display results
+        print(f"Starting Portfolio Value: {cash}")
+        print(f"Ending Portfolio Value: {cerebro.broker.getvalue():.2f}")
+        print(f"Total Return: {metrics.total_return:.2f}%")
+        print(f"Number of Trades: {metrics.trades}")
+        print(f"Winning Trades: {metrics.winning_trades}")
+        print(f"Losing Trades: {metrics.losing_trades}")
+        print(f"Max Drawdown: {metrics.max_drawdown:.2f}%")
+        print(f"Sharpe Ratio: {metrics.sharpe_ratio:.2f}")
+
+        # Plot the strategy
         cerebro.plot(style='candle', volume=False, barup='lightgreen', bardown='red')
-    except bt.errors.BTError as e:
-        print(f"An error occurred while plotting: {e}")
+    except Exception as e:
+        print(f"An error occurred during backtesting: {e}")
 
 if __name__ == "__main__":
     # Prompt for user input
     data_path = input("Enter data path: ").strip()
     cash = float(input("Enter starting cash amount: ").strip())
 
-    # Load other configurations from JSON (unchanged)
-    with open('backtest_config.json', 'r') as f:
+    # Load other configurations from JSON
+    with open('../backtest/backtest_config.json', 'r') as f:
         config = json.load(f)
 
     for date_range in config['date_ranges']:
