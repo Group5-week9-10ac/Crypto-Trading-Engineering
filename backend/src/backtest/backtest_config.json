@@ -1,0 +1,32 @@
+{
+    "data_path": "../data/SPCE.csv",
+    "fromdate": "2023-06-20",
+    "todate": "2024-06-17",
+    "cash": 10000.0,
+    "strategies": [
+        {
+            "name": "SMAStrategy",
+            "params": {"period": 15}
+        },
+        {
+            "name": "EMAStrategy",
+            "params": {"period": 15}
+        },
+        {
+            "name": "RSIStrategy",
+            "params": {"period": 14}
+        },
+        {
+            "name": "BollingerBandsStrategy",
+            "params": {"period": 20, "devfactor": 2.0}
+        },
+        {
+            "name": "AroonOscillatorStrategy",
+            "params": {"period": 14}
+        },
+        {
+            "name": "StochasticOscillatorStrategy",
+            "params": {"period": 14, "percK": 3, "percD": 3}
+        }
+    ]
+}
