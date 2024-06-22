@@ -22,7 +22,7 @@ def generate_forecast_date(df):
     forecast_dates = pd.date_range(last_date, periods=12 + 1, freq='D')[1:]  # Adjust frequency as needed
     return forecast_dates
 
-def predict(df,forecast_dates,context):
+def predict(name,df,forecast_dates,context):
     # Load the pretrained Chronos model
     pipeline = ChronosPipeline.from_pretrained(
     "amazon/chronos-t5-small",
@@ -60,6 +60,6 @@ def predict(df,forecast_dates,context):
     plt.legend()
     plt.grid()
     plt.xlabel("Date")  # Adding a label to the x-axis
-    plt.ylabel("BTC-USD Close Price")  # Adding a label to the y-axis
-    plt.title("BTC-USD Close Price Forecast")  # Adding a title to the plot
+    plt.ylabel(f"{name}-USD Close Price")  # Adding a label to the y-axis
+    plt.title(f"{name}-USD Close Price Forecast")  # Adding a title to the plot
     plt.show()
