@@ -1,11 +1,13 @@
 confluent-kafka
-psycopg2
+psycopg2-binary
 backtrader
-yfinance 
+yfinance
 vectorbt
 python-dotenv
-tensorflow 
-scikit-learn 
+tensorflow
+scikit-learn
 matplotlib
+pandas
+
 
 

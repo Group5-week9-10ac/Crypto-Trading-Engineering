@@ -1,20 +1,18 @@
 version: '3.10'
 
 services:
-  zookeeper:
-    image: wurstmeister/zookeeper:3.4.6
-    container_name: zookeeper
-    ports:
-      - "2181:2181"
-
-  kafka:
-    image: wurstmeister/kafka:2.12-2.8.0
-    container_name: kafka
-    ports:
-      - "9092:9092"
+  crypto_trading_engineering:
+    image: postgres:latest
+    container_name: crypto_trading_engineering
     environment:
-      KAFKA_ADVERTISED_HOST_NAME: localhost
-      KAFKA_CREATE_TOPICS: "backtest_parameters:1"  # Create topics on startup if needed
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-      KAFKA_AUTO_OFFSET_RESET: "earliest"
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST_AUTH_METHOD: trust  # Consider removing this in production
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
