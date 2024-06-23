@@ -1,13 +1,14 @@
 const express = require('express');
-const bodyParser = require('body-parser');
+const app = express();
 const backtestRoutes = require('./routes/backtestRoutes');
 
-const app = express();
+// Middleware to parse JSON bodies
+app.use(express.json());
 
-app.use(bodyParser.json());
+// Use backtest routes
 app.use('/api', backtestRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+    console.log(`Server is running on port ${PORT}`);
 });
