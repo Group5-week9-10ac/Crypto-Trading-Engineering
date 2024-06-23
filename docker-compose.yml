@@ -11,8 +11,10 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - mlops_pgdata:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./init_auth.sql:/docker-entrypoint-initdb.d/init_auth.sql
 
 volumes:
-  pgdata:
+  mlops_pgdata:
+    external: true

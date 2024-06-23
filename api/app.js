@@ -1,12 +1,21 @@
 const express = require('express');
-const app = express();
-const backtestRoutes = require('./routes/backtestRoutes');
+const authRoutes = require('./routes/authRoutes');
+const authMiddleware = require('./middleware/authMiddleware');
+require('dotenv').config();
 
-// Middleware to parse JSON bodies
+const app = express();
+
+// Middleware
 app.use(express.json());
 
-// Use backtest routes
-app.use('/api', backtestRoutes);
+
+// Routes
+app.use('/api/auth', authRoutes);
+
+// Protected route example
+app.get('/api/dashboard', authMiddleware, (req, res) => {
+    res.json({ message: 'Welcome to the dashboard!' });
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
