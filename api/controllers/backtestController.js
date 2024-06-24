@@ -1,7 +1,7 @@
-const { runBacktest, checkBacktestExists } = require('../services/backtestService');
+const { checkBacktestExists } = require('../services/backtestService');
+const sendBacktestRequest = require('../kafka/producer');
 
 async function handleBacktestRequest(req, res) {
-    // Example usage of runBacktest
     const strategyName = req.body.strategyName;
     const symbol = req.body.symbol;
     const fromDate = req.body.fromDate;
@@ -12,16 +12,15 @@ async function handleBacktestRequest(req, res) {
         const backtestExists = await checkBacktestExists(strategyName, symbol, fromDate, toDate);
 
         if (backtestExists) {
-            // Handle case where backtest results already exist
             res.status(400).json({ message: 'Backtest results already exist for this range.' });
         } else {
-            // Run the backtest
-            const metrics = await runBacktest(strategyName, symbol, fromDate, toDate, cash);
-            res.status(200).json({ message: 'Backtest completed successfully.', metrics });
+            const backtestRequest = { strategyName, symbol, fromDate, toDate, cash };
+            await sendBacktestRequest(backtestRequest);
+            res.status(200).json({ message: 'Backtest request sent successfully.' });
         }
     } catch (error) {
-        console.error('Error running backtest:', error);
-        res.status(500).json({ message: 'Error running backtest.', error: error.message });
+        console.error('Error handling backtest request:', error);
+        res.status(500).json({ message: 'Error handling backtest request.', error: error.message });
     }
 }
 

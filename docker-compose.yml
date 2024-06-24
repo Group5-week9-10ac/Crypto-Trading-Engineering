@@ -14,7 +14,52 @@ services:
       - mlops_pgdata:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
       - ./init_auth.sql:/docker-entrypoint-initdb.d/init_auth.sql
+    networks:
+      - mlops_wk9_network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - mlops_wk9_network
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+    depends_on:
+      - zookeeper
+    networks:
+      - mlops_wk9_network 
+
+  app:
+    image: node:latest
+    container_name: my_app
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: bash -c "npm install && node api/app.js"
+    depends_on:
+      - kafka
+    networks:
+      - mlops_wk9_network 
 
 volumes:
   mlops_pgdata:
     external: true
+
+networks:
+  mlops_wk9_network: 
+    driver: bridge
