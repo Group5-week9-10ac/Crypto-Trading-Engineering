@@ -1,5 +1,5 @@
-const { checkBacktestExists } = require('../services/backtestService');
-const sendBacktestRequest = require('../kafka/producer');
+const { checkBacktestExists, getBacktestResults } = require('../services/backtestService');
+const { sendBacktestRequest, sendBacktestResults } = require('../kafka/producer');
 
 async function handleBacktestRequest(req, res) {
     const strategyName = req.body.strategyName;
@@ -12,7 +12,9 @@ async function handleBacktestRequest(req, res) {
         const backtestExists = await checkBacktestExists(strategyName, symbol, fromDate, toDate);
 
         if (backtestExists) {
-            res.status(400).json({ message: 'Backtest results already exist for this range.' });
+            const results = await getBacktestResults(strategyName, symbol, fromDate, toDate);
+            await sendBacktestResults(results);
+            res.status(200).json({ message: 'Backtest results already exist and have been published to Kafka.', results });
         } else {
             const backtestRequest = { strategyName, symbol, fromDate, toDate, cash };
             await sendBacktestRequest(backtestRequest);
