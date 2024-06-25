@@ -1,28 +1,24 @@
 const express = require('express');
-const authRoutes = require('./routes/authRoutes');
-const authMiddleware = require('./middleware/authMiddleware');
-const startConsumer = require('./kafka/consumer');
-require('dotenv').config();
+const { startConsumer, stopConsumer } = require('./kafka/consumer');
 
 const app = express();
+const port = process.env.PORT || 4000;
 
-// Middleware
-app.use(express.json());
+app.get('/', (req, res) => res.send('Kafka Consumer is running'));
 
-// Routes
-app.use('/api/auth', authRoutes);
-
-// Protected route example
-app.get('/api/dashboard', authMiddleware, (req, res) => {
-    res.json({ message: 'Welcome to the dashboard!' });
+const server = app.listen(port, async () => {
+  console.log(`Server is running on port ${port}`);
+  await startConsumer();
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-    startConsumer().then(() => {
-        console.log('Kafka consumer started successfully');
-    }).catch(err => {
-        console.error('Error starting Kafka consumer:', err);
-    });
-});
+const shutdown = async () => {
+  console.log('Shutting down server...');
+  await stopConsumer();
+  server.close(() => {
+    console.log('Express server closed');
+    process.exit(0);
+  });
+};
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);

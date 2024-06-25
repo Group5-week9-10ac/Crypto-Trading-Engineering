@@ -42,24 +42,24 @@ services:
     depends_on:
       - zookeeper
     networks:
-      - mlops_wk9_network 
+      - mlops_wk9_network
 
   app:
-    image: node:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.kafka
     container_name: my_app
-    volumes:
-      - .:/app
-    working_dir: /app
-    command: bash -c "npm install && node api/app.js"
     depends_on:
       - kafka
     networks:
-      - mlops_wk9_network 
+      - mlops_wk9_network
+    ports:
+      - "4000:3000"
 
 volumes:
   mlops_pgdata:
-    external: true
+    external: false
 
 networks:
-  mlops_wk9_network: 
+  mlops_wk9_network:
     driver: bridge
