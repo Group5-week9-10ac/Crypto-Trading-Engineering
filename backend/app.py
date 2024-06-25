@@ -1,5 +1,4 @@
 from flask import Flask, request,session 
-#  ,abort 
 from models import db, User, BackTestScene, BackTestResult
 from config import ApplicationConfig
 from flask_bcrypt import Bcrypt
