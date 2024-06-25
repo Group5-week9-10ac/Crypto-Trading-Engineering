@@ -1,3 +1,9 @@
+<<<<<<< HEAD
+env9
+env
+/data
+/home/jabez/Documents/week_9/Crypto-Trading-Engineering/scripts/backtest_config.json
+=======
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -167,3 +173,4 @@ cython_debug/
 #.idea/
 artifacts/
 .history/
+>>>>>>> 759dc8f8d21813992bcf801be24965e89ddeabd1
