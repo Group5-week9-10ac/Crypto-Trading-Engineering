@@ -10,8 +10,8 @@ const Createback = () => {
   const [endDate, setendDate] = useState(null);
   const [selectedCoin, setselectedCoin] = useState(null);
   const [initialCash, setinitialCash] = useState("");
-  const [fmwValue, setfmwValue] = useState("");
-  const [smwValue, setsmwValue] = useState("");
+  const [fmaValue, setfmaValue] = useState("");
+  const [smaValue, setsmaValue] = useState("");
   const [stakeValue, setStakeValue] = useState("");
 
   const coin = [
@@ -45,15 +45,15 @@ const Createback = () => {
 
     setStakeValue(result);
   };
-  const handleChangesmwValue = (event) => {
+  const handleChangesmaValue = (event) => {
     const result = event.target.value.replace(/\D/g, "");
 
-    setsmwValue(result);
+    setsmaValue(result);
   };
-  const handleChangefmwValue = (event) => {
+  const handleChangefmaValue = (event) => {
     const result = event.target.value.replace(/\D/g, "");
 
-    setfmwValue(result);
+    setfmaValue(result);
   };
   return (
     <>
@@ -86,22 +86,22 @@ const Createback = () => {
           </Form.Group>
           <br></br>
           <Form.Group>
-            <Form.Label>SMW</Form.Label>
+            <Form.Label>SMA</Form.Label>
             <Form.Control
               type="text"
-              placeholder="smw"
-              value={smwValue}
-              onChange={handleChangesmwValue}
+              placeholder="sma"
+              value={smaValue}
+              onChange={handleChangesmaValue}
             ></Form.Control>
           </Form.Group>
           <br></br>
           <Form.Group>
-            <Form.Label>FMW</Form.Label>
+            <Form.Label>FMA</Form.Label>
             <Form.Control
               type="text"
-              placeholder="fmw"
-              value={fmwValue}
-              onChange={handleChangefmwValue}
+              placeholder="fma"
+              value={fmaValue}
+              onChange={handleChangefmaValue}
             ></Form.Control>
           </Form.Group>
           <br></br>

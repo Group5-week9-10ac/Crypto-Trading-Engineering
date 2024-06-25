@@ -41,7 +41,7 @@ const LoggedOutLinks = () => {
 const NavBar = () => {
   // const [logged] = useAuth();
 
-  const logged = false;
+  const logged = true;
 
   return (
     <Navbar bg="dark" data-bs-theme="dark" style={{ marginTop: "20px" }}>
