@@ -1,68 +1,78 @@
-import React, { useState } from 'react';
-import { Form, Button, Alert } from 'react-bootstrap';
-import { Link } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { loginUser } from '../services/apiService';
+import React from "react";
+import { Form, Button } from "react-bootstrap";
+import { Link } from "react-router-dom";
+import { useForm } from "react-hook-form";
 
 const LoginPage = () => {
-  const { register, handleSubmit, formState: { errors } } = useForm();
-  const [showAlert, setShowAlert] = useState(false);
-  const [alertMessage, setAlertMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const {
+    register,
+    handleSubmit,
 
-  const onSubmit = async (data) => {
-    setIsLoading(true);
+    formState: { errors },
+  } = useForm();
 
-    try {
-      const response = await loginUser(data.username, data.password);
-      console.log('Login success:', response);
-    } catch (error) {
-      console.error('Error logging in:', error);
-      if (error.response) {
-        setAlertMessage(error.response.data.message || 'An error occurred during login. Please try again.');
-      } else if (error.request) {
-        setAlertMessage('Network error. Please try again later.');
-      } else {
-        setAlertMessage('An unexpected error occurred. Please try again.');
-      }
-      setShowAlert(true);
-    } finally {
-      setIsLoading(false);
-    }
+  const loginUser = (data) => {
+    console.log("data", data);
   };
 
   return (
     <div className="container">
       <div className="form">
         <h1>Login</h1>
-        {showAlert && (
-          <Alert variant="danger" onClose={() => setShowAlert(false)} dismissible>
-            <p>{alertMessage}</p>
-          </Alert>
-        )}
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <form>
           <Form.Group>
-            <Form.Label>Username or Email</Form.Label>
-            <Form.Control type="text"
-              placeholder="Your username or email"
-              {...register("username", { required: true })}
+            <Form.Label>Username</Form.Label>
+            <Form.Control
+              type="text"
+              placeholder="Your username"
+              {...register("username", { required: true, maxLength: 25 })}
             />
-            {errors.username && <p style={{ color: "red" }}>Username or Email is required</p>}
           </Form.Group>
-          <br />
+          {errors.username && (
+            <p style={{ color: "red" }}>
+              <small>Username is required</small>
+            </p>
+          )}
+          {errors.username?.type === "maxLength" && (
+            <p style={{ color: "red" }}>
+              <small>Username should be 25 characters</small>
+            </p>
+          )}
+          <br></br>
+
           <Form.Group>
             <Form.Label>Password</Form.Label>
-            <Form.Control type="password"
+            <Form.Control
+              type="password"
               placeholder="Your password"
-              {...register("password", { required: true })}
+              {...register("password", { required: true, minLength: 8 })}
             />
-            {errors.password && <p style={{ color: "red" }}>Password is required</p>}
           </Form.Group>
-          <br />
-          <Button type="submit" variant="primary" disabled={isLoading}>{isLoading ? 'Logging in...' : 'Log In'}</Button>
-          <br />
+          {errors.username && (
+            <p style={{ color: "red" }}>
+              <small>Password is required</small>
+            </p>
+          )}
+          {errors.password?.type === "maxLength" && (
+            <p style={{ color: "red" }}>
+              <small>Password should be more than 8 characters</small>
+            </p>
+          )}
+          <br></br>
           <Form.Group>
-            <small>Don't have an account? <Link to='/signup'>Sign Up</Link></small>
+            <Button
+              as="sub"
+              variant="primary"
+              onClick={handleSubmit(loginUser)}
+            >
+              Login
+            </Button>
+          </Form.Group>
+          <br></br>
+          <Form.Group>
+            <small>
+              Do not have an account? <Link to="/signup">Create One</Link>
+            </small>
           </Form.Group>
         </form>
       </div>
@@ -71,5 +81,3 @@ const LoginPage = () => {
 };
 
 export default LoginPage;
-
-

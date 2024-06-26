@@ -1,6 +1,7 @@
 {
-    "fromdate": "2024-05-21",
-    "todate": "2024-06-21",
+    "data_path": "../data/SPCE.csv",
+    "fromdate": "2023-06-20",
+    "todate": "2024-06-17",
     "cash": 10000.0,
     "strategies": [
         {

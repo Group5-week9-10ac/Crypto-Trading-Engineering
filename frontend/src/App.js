@@ -1,23 +1,28 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import HomePage from './components/HomePage';
-import LoginPage from './components/LoginPage';
-import SignUpPage from './components/SignUpPage';
-import CreateBacktestPage from './components/CreateBacktestPage';
-import NavbarPage from './components/NavbarPage';
+import "./App.css";
 
-const App = () => (
-  <Router>
-    <NavbarPage />
-    <Routes>
-      <Route path="/" element={<HomePage />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/signup" element={<SignUpPage />} />
-      <Route path="/createbacktest" element={<CreateBacktestPage />} />
-      <Route path="*" element={<Navigate to="/" />} />
-    </Routes>
-  </Router>
-);
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import NavBar from "./components/NavbarPage";
+import CreatebackPage from "./components/CreateBacktestPage";
+import SignUpPage from "./components/SignUpPage";
+import LoginPage from "./components/LoginPage";
+import HomePage from "./components/HomePage";
+import PrivateRoutes from "./utils/PrivateRoute";
+
+function App() {
+  return (
+    <>
+      <NavBar />
+
+      <Routes>
+        <Route element={<PrivateRoutes />}>
+          <Route path="/createbacktest" element={<CreatebackPage />} />
+        </Route>
+        <Route path="/signup" element={<SignUpPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/" element={<HomePage />} />
+      </Routes>
+    </>
+  );
+}
 
 export default App;
-

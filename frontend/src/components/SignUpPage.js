@@ -1,82 +1,135 @@
-import React, { useState } from 'react';
-import { Form, Button, Alert } from 'react-bootstrap';
-import { useForm } from 'react-hook-form';
-import { signupUser } from '../services/apiService'; // Correct import
+import React, { useState } from 'react'
+import { Form, Button, Alert } from 'react-bootstrap'
+import { Link } from 'react-router-dom'
+import { useForm } from 'react-hook-form'
 
-const SignupPage = () => {
-  const { register, handleSubmit, formState: { errors } } = useForm();
-  const [showAlert, setShowAlert] = useState(false);
-  const [alertMessage, setAlertMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
 
-  const onSubmit = async (data) => {
-    setIsLoading(true);
+const SignUpPage = () => {
 
-    try {
-      const response = await signupUser(data.username, data.email, data.password);
-      // Handle successful signup, e.g., store tokens
-      console.log('Signup success:', response);
-    } catch (error) {
-      console.error('Error signing up:', error);
-      if (error.response) {
-        // Handle HTTP error response from server
-        setAlertMessage(error.response.data.message || 'An error occurred during signup. Please try again.');
-      } else if (error.request) {
-        // Handle network error (no response received)
-        setAlertMessage('Network error. Please try again later.');
-      } else {
-        // Handle other errors
-        setAlertMessage('An unexpected error occurred. Please try again.');
-      }
-      setShowAlert(true);
-    } finally {
-      setIsLoading(false);
+
+    const { register, handleSubmit, reset, formState: { errors } } = useForm();
+    const [show,setShow]=useState(false)
+    const [serverResponse,setServerResponse]=useState('')
+
+    const submitForm = (data) => {
+
+
+        if (data.password === data.confirmPassword) {
+
+
+            const body = {
+                username: data.username,
+                email: data.email,
+                password: data.password
+            }
+
+            const requestOptions = {
+                method: "POST",
+                headers: {
+                    'content-type': 'application/json'
+                },
+                body: JSON.stringify(body)
+            }
+
+
+            fetch('/auth/signup', requestOptions)
+                .then(res => res.json())
+                .then(data =>{
+                    console.log(data)
+                    setServerResponse(data.message)
+                    setShow(true)
+                })
+                .catch(err => console.log(err))
+
+            reset()
+        }
+
+        else {
+            alert("Passwords do not match")
+        }
+
+
     }
-  };
 
-  return (
-    <div className="container">
-      <div className="form">
-        <h1>Sign Up</h1>
-        {showAlert && (
-          <Alert variant="danger" onClose={() => setShowAlert(false)} dismissible>
-            <p>{alertMessage}</p>
-          </Alert>
-        )}
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <Form.Group>
-            <Form.Label>Username</Form.Label>
-            <Form.Control type="text"
-              placeholder="Your username"
-              {...register("username", { required: true })}
-            />
-            {errors.username && <p style={{ color: "red" }}>Username is required</p>}
-          </Form.Group>
-          <br />
-          <Form.Group>
-            <Form.Label>Email</Form.Label>
-            <Form.Control type="email"
-              placeholder="Your email"
-              {...register("email", { required: true })}
-            />
-            {errors.email && <p style={{ color: "red" }}>Email is required</p>}
-          </Form.Group>
-          <br />
-          <Form.Group>
-            <Form.Label>Password</Form.Label>
-            <Form.Control type="password"
-              placeholder="Your password"
-              {...register("password", { required: true })}
-            />
-            {errors.password && <p style={{ color: "red" }}>Password is required</p>}
-          </Form.Group>
-          <br />
-          <Button type="submit" variant="primary" disabled={isLoading}>{isLoading ? 'Signing up...' : 'Sign Up'}</Button>
-        </form>
-      </div>
-    </div>
-  );
-};
 
-export default SignupPage;
+    return (
+        <div className="container">
+            <div className="form">
 
+                
+               {show?
+               <>
+                <Alert variant="success" onClose={() => {setShow(false)
+                }} dismissible>
+                <p>
+                   {serverResponse}
+                </p>
+                </Alert>
+
+                <h1>Sign Up</h1>
+                
+                </>
+                :
+                <h1>Sign Up</h1>
+               
+               }
+                <form>
+                    <Form.Group>
+                        <Form.Label>Username</Form.Label>
+                        <Form.Control type="text"
+                            placeholder="Your username"
+                            {...register("username", { required: true, maxLength: 25 })}
+                        />
+
+                        {errors.username && <small style={{ color: "red" }}>Username is required</small>}
+                        {errors.username?.type === "maxLength" && <p style={{ color: "red" }}><small>Max characters should be 25 </small></p>}
+                    </Form.Group>
+                    <br></br>
+                    <Form.Group>
+                        <Form.Label>Email</Form.Label>
+                        <Form.Control type="email"
+                            placeholder="Your email"
+                            {...register("email", { required: true, maxLength: 80 })}
+                        />
+
+                        {errors.email && <p style={{ color: "red" }}><small>Email is required</small></p>}
+
+                        {errors.email?.type === "maxLength" && <p style={{ color: "red" }}><small>Max characters should be 80</small></p>}
+                    </Form.Group>
+                    <br></br>
+                    <Form.Group>
+                        <Form.Label>Password</Form.Label>
+                        <Form.Control type="password"
+                            placeholder="Your password"
+                            {...register("password", { required: true, minLength: 8 })}
+
+                        />
+
+                        {errors.password && <p style={{ color: "red" }}><small>Password is required</small></p>}
+                        {errors.password?.type === "minLength" && <p style={{ color: "red" }}><small>Min characters should be 8</small></p>}
+                    </Form.Group>
+                    <br></br>
+                    <Form.Group>
+                        <Form.Label>Confirm Password</Form.Label>
+                        <Form.Control type="password" placeholder="Your password"
+                            {...register("confirmPassword", { required: true, minLength: 8 })}
+                        />
+                        {errors.confirmPassword && <p style={{ color: "red" }}><small>Confirm Password is required</small></p>}
+                        {errors.confirmPassword?.type === "minLength" && <p style={{ color: "red" }}><small>Min characters should be 8</small></p>}
+                    </Form.Group>
+                    <br></br>
+                    <Form.Group>
+                        <Button as="sub" variant="primary" onClick={handleSubmit(submitForm)}>SignUp</Button>
+                    </Form.Group>
+                    <br></br>
+                    <Form.Group>
+                        <small>Already have an account, <Link to='/login'>Log In</Link></small>
+                    </Form.Group>
+                    <br></br>
+                </form>
+            </div>
+        </div>
+    )
+}
+
+export default SignUpPage
