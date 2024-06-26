@@ -56,6 +56,16 @@ services:
     ports:
       - "4000:3000"
 
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: my_frontend
+    networks:
+      - mlops_wk9_network
+    ports:
+      - "3000:3000"
+
 volumes:
   mlops_pgdata:
     external: false
@@ -63,4 +73,3 @@ volumes:
 networks:
   mlops_wk9_network:
     driver: bridge
-

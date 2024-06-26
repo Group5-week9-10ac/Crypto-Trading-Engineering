@@ -4,18 +4,24 @@ import Container from "react-bootstrap/Container";
 import Nav from "react-bootstrap/Nav";
 import Navbar from "react-bootstrap/Navbar";
 
+const handleLogout = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
+  window.location.href = '/login';
+};
+
 const LoggedInLinks = () => {
   return (
     <>
       <li className="nav-item">
-        <Link className="nav-link  active" to="/createbacktest">
+        <Link className="nav-link active" to="/createbacktest">
           Create Backtest
         </Link>
       </li>
       <li className="nav-item">
-        <a className="nav-link active" href="#">
+        <button className="nav-link active" onClick={handleLogout}>
           Log Out
-        </a>
+        </button>
       </li>
     </>
   );
@@ -39,9 +45,8 @@ const LoggedOutLinks = () => {
 };
 
 const NavBar = () => {
-  // const [logged] = useAuth();
-
-  const logged = false;
+  const token = localStorage.getItem('token');
+  const logged = !!token;
 
   return (
     <Navbar bg="dark" data-bs-theme="dark" style={{ marginTop: "20px" }}>
