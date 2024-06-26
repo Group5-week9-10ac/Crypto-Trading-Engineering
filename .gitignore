@@ -175,3 +175,4 @@ cython_debug/
 artifacts/
 .history/
 >>>>>>> 759dc8f8d21813992bcf801be24965e89ddeabd1
+frontend/node_modules/
