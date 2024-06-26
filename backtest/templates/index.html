@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backtest Crypto Strategy</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .strategy-params {
+            display: none;
+        }
+    </style>
+    <script>
+        function updateStrategyParams() {
+            var strategyId = document.getElementById("strategy_id").value;
+            var paramContainers = document.querySelectorAll('.strategy-params');
+
+            paramContainers.forEach(function(container) {
+                container.style.display = 'none';
+            });
+
+            var selectedStrategyParams = document.getElementById('strategy-' + strategyId + '-params');
+            if (selectedStrategyParams) {
+                selectedStrategyParams.style.display = 'block';
+            }
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>Backtest Crypto Strategy</h1>
+        <form action="/process" method="post">
+            <div class="form-group">
+                <label for="cash">Starting Cash:</label>
+                <input type="number" id="cash" name="cash" required>
+            </div>
+            <div class="form-group">
+                <label for="fromdate">From Date:</label>
+                <input type="date" id="fromdate" name="fromdate" required>
+            </div>
+            <div class="form-group">
+                <label for="todate">To Date:</label>
+                <input type="date" id="todate" name="todate" required>
+            </div>
+            <div class="form-group">
+                <label for="crypto_id">Select Cryptocurrency:</label>
+                <select id="crypto_id" name="crypto_id" required>
+                    <option value="9">Bitcoin</option>
+                    <option value="10">Ethereum</option>
+                    <option value="12">Solana</option>
+                    <option value="13">Tether</option>
+                    <option value="11">Binance</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="strategy_id">Select Strategy:</label>
+                <select id="strategy_id" name="strategy_id" required onchange="updateStrategyParams()">
+                    <option value="1">SMAStrategy</option>
+                    <option value="2">EMAStrategy</option>
+                    <option value="3">RSIStrategy</option>
+                    <option value="4">BollingerBandsStrategy</option>
+                    <option value="5">AroonOscillatorStrategy</option>
+                    <option value="6">StochasticOscillatorStrategy</option>
+                </select>
+            </div>
+            <div id="strategy-1-params" class="strategy-params">
+                <div class="form-group">
+                    <label for="period">Period:</label>
+                    <input type="number" id="period" name="period" value="15">
+                </div>
+                <div class="form-group">
+                    <label for="stop_loss">Stop Loss:</label>
+                    <input type="number" id="stop_loss" name="stop_loss" step="0.01" value="0.02">
+                </div>
+            </div>
+            <div id="strategy-2-params" class="strategy-params">
+                <div class="form-group">
+                    <label for="ema_period">EMA Period:</label>
+                    <input type="number" id="ema_period" name="ema_period" value="15">
+                </div>
+            </div>
+            <div id="strategy-3-params" class="strategy-params">
+                <div class="form-group">
+                    <label for="rsi_period">RSI Period:</label>
+                    <input type="number" id="rsi_period" name="rsi_period" value="14">
+                </div>
+            </div>
+            <div id="strategy-4-params" class="strategy-params">
+                <div class="form-group">
+                    <label for="bb_period">Period:</label>
+                    <input type="number" id="bb_period" name="bb_period" min="20" max="25">
+                </div>
+                <div class="form-group">
+                    <label for="devfactor">Dev Factor:</label>
+                    <input type="number" id="devfactor" name="devfactor" step="0.1" min="2.0" max="2.5">
+                </div>
+            </div>
+            <div id="strategy-5-params" class="strategy-params">
+                <div class="form-group">
+                    <label for="aroon_period">Aroon Period:</label>
+                    <input type="number" id="aroon_period" name="aroon_period" value="25">
+                </div>
+            </div>
+            <div id="strategy-6-params" class="strategy-params">
+                <div class="form-group">
+                    <label for="percK">%K Period:</label>
+                    <input type="number" id="percK" name="percK" min="14" max="20">
+                </div>
+                <div class="form-group">
+                    <label for="percD">%D Period:</label>
+                    <input type="number" id="percD" name="percD" min="3" max="5">
+                </div>
+            </div>
+            <button type="submit">Run Backtest</button>
+        </form>
+    </div>
+    <script>
+        // Initialize the form with the correct strategy parameters displayed
+        updateStrategyParams();
+    </script>
+</body>
+</html>

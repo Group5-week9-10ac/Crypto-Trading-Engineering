@@ -1,6 +1,8 @@
 {
     "data_path": "../data/USDT-USD.csv",
-    "cash": 10000,
+    "cash": 100000,
+    "crypto_id": 11,
+    "strategy_id": 1,
     "date_ranges": [
         {
             "fromdate": "2023-06-20",

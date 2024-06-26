@@ -1,10 +1,18 @@
-from itertools import product
 import datetime
 import json
+from itertools import product
+import os
 import backtrader as bt
 import matplotlib.pyplot as plt
+import psycopg2
 
-# Define Strategies
+# Database connection details
+DB_USER='postgres'
+DB_PASSWORD='postgres'
+DB_HOST='localhost'
+DB_PORT='5433'
+DB_NAME='crypto_trading'
+
 class SMAStrategy(bt.Strategy):
     params = (('period', 15), ('stop_loss', 0.02))
 
@@ -23,6 +31,7 @@ class SMAStrategy(bt.Strategy):
         else:
             if self.data.close[0] < self.sma[0] or self.data.close[0] < self.stop_price:
                 self.sell(size=self.position.size)
+
 
 class EMAStrategy(bt.Strategy):
     params = (('period', 15), ('stop_loss', 0.02))
@@ -43,22 +52,27 @@ class EMAStrategy(bt.Strategy):
             if self.data.close[0] < self.ema[0] or self.data.close[0] < self.stop_price:
                 self.sell(size=self.position.size)
 
+
 class RSIStrategy(bt.Strategy):
-    params = (('rsi_period', 14), ('stop_loss', 0.02))
+    params = (
+        ('period', 14),
+        ('stop_loss', 0.02)  # Default stop loss value
+    )
 
     def __init__(self):
-        self.rsi = bt.indicators.RSI(self.data.close, period=self.params.rsi_period)
-        self.atr = bt.indicators.ATR(self.data, period=14)
+        self.rsi = bt.indicators.RelativeStrengthIndex(period=self.params.period)
 
     def next(self):
+        if len(self.data) < self.params.period:
+            return
         if not self.position:
             if self.rsi[0] < 30:
-                size = int(self.broker.cash / self.data.close[0])
-                self.buy(size=size)
-                self.stop_price = self.data.close[0] - self.atr[0] * self.params.stop_loss
+                self.buy()
+                self.stop_price = self.data.close[0] * (1.0 - self.params.stop_loss)
         else:
             if self.rsi[0] > 70 or self.data.close[0] < self.stop_price:
-                self.sell(size=self.position.size)
+                self.sell()
+
 
 class BollingerBandsStrategy(bt.Strategy):
     params = (('period', 20), ('devfactor', 2.0), ('stop_loss', 0.02))
@@ -77,6 +91,7 @@ class BollingerBandsStrategy(bt.Strategy):
             if self.data.close[0] > self.bbands.lines.top[0] or self.data.close[0] < self.stop_price:
                 self.sell(size=self.position.size)
 
+
 class AroonOscillatorStrategy(bt.Strategy):
     params = (('period', 25), ('stop_loss', 0.02))
 
@@ -93,6 +108,7 @@ class AroonOscillatorStrategy(bt.Strategy):
         else:
             if self.aroon[0] < 0 or self.data.close[0] < self.stop_price:
                 self.sell(size=self.position.size)
+
 
 class StochasticOscillatorStrategy(bt.Strategy):
     params = (('percK', 14), ('percD', 3), ('stop_loss', 0.02))
@@ -111,7 +127,7 @@ class StochasticOscillatorStrategy(bt.Strategy):
             if self.stochastic.percK[0] < self.stochastic.percD[0] or self.data.close[0] < self.stop_price:
                 self.sell(size=self.position.size)
 
-# Metrics Analyzer (unchanged)
+
 class MetricsAnalyzer(bt.Analyzer):
     def __init__(self):
         self.total_return = 0.0
@@ -145,66 +161,81 @@ class MetricsAnalyzer(bt.Analyzer):
             self.sharpe_ratio = sharpe_ratio_analysis['sharperatio']
 
 
-def run_backtest(strategy_class, strategy_params, data_path, fromdate, todate, cash):
-    cerebro = bt.Cerebro()
-    cerebro.addstrategy(strategy_class, **strategy_params)
-    data = bt.feeds.GenericCSVData(dataname=data_path, nullvalue=0.0, dtformat=('%Y-%m-%d'), datetime=0, open=1, high=2, low=3, close=4, volume=5, adjclose=6, fromdate=fromdate, todate=todate)
-    cerebro.adddata(data)
-    cerebro.broker.setcash(cash)
-    cerebro.addanalyzer(bt.analyzers.TradeAnalyzer, _name='trade_analyzer')
-    cerebro.addanalyzer(bt.analyzers.DrawDown, _name='drawdown')
-    cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='sharpe_ratio')
-    cerebro.addanalyzer(MetricsAnalyzer, _name='metrics')
+def insert_backtest(conn, crypto_id, strategy_id, parameter_set, start_date, end_date, cash):
+    with conn.cursor() as cur:
+        cur.execute("""
+            INSERT INTO backtests (crypto_id, strategy_id, parameter_set, start_date, end_date, cash)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING backtest_id;
+        """, (crypto_id, strategy_id, json.dumps(parameter_set), start_date, end_date, cash))
+        return cur.fetchone()[0]
 
+
+def insert_result(conn, backtest_id, total_return, trades, winning_trades, losing_trades, max_drawdown, sharpe_ratio, ending_portfolio_value):
+    with conn.cursor() as cur:
+        cur.execute("""
+            INSERT INTO results (backtest_id, total_return, trades, winning_trades, losing_trades, max_drawdown, sharpe_ratio, ending_portfolio_value)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
+        """, (backtest_id, total_return, trades, winning_trades, losing_trades, max_drawdown, sharpe_ratio, ending_portfolio_value))
+
+
+# Function to run the backtest
+def run_backtest(strategy_class, strategy_params, data_path, fromdate, todate, cash, crypto_id, strategy_id):
     try:
+        cerebro = bt.Cerebro()
+        cerebro.addstrategy(strategy_class, **strategy_params)  # Pass strategy_params as kwargs
+
+        # Add data and set cash
+        data = bt.feeds.GenericCSVData(
+            dataname=data_path,
+            nullvalue=0.0,
+            dtformat=('%Y-%m-%d'),
+            datetime=0,
+            open=1,
+            high=2,
+            low=3,
+            close=4,
+            volume=5,
+            adjclose=6,
+            fromdate=fromdate,
+            todate=todate
+        )
+        cerebro.adddata(data)
+        cerebro.broker.setcash(cash)
+
+        # Add analyzers
+        cerebro.addanalyzer(bt.analyzers.TradeAnalyzer, _name='trade_analyzer')
+        cerebro.addanalyzer(bt.analyzers.DrawDown, _name='drawdown')
+        cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='sharpe_ratio')
+        cerebro.addanalyzer(MetricsAnalyzer, _name='metrics')
+
+        # Run the strategy
         result = cerebro.run()
-        metrics = result[0].analyzers.metrics
+        metrics = result[0].analyzers.metrics  # Assuming only one strategy is added
 
-        # Print and display results
-        print(f"Starting Portfolio Value: {cash}")
-        print(f"Ending Portfolio Value: {cerebro.broker.getvalue():.2f}")
-        print(f"Total Return: {metrics.total_return:.2f}%")
-        print(f"Number of Trades: {metrics.trades}")
-        print(f"Winning Trades: {metrics.winning_trades}")
-        print(f"Losing Trades: {metrics.losing_trades}")
-        print(f"Max Drawdown: {metrics.max_drawdown:.2f}%")
-        print(f"Sharpe Ratio: {metrics.sharpe_ratio:.2f}")
+        # Database insertion
+        conn = psycopg2.connect(host='localhost', port='5433', dbname='crypto_trading', user='postgres', password='postgres')
+        conn.autocommit = True
 
-        # Plot the strategy
-        cerebro.plot(style='candle', volume=False, barup='lightgreen', bardown='red')
+        # Insert backtest
+        backtest_id = insert_backtest(conn, crypto_id, strategy_id, strategy_params, fromdate, todate, cash)
+
+        # Insert results
+        insert_result(conn, backtest_id, metrics.total_return, metrics.trades, metrics.winning_trades, metrics.losing_trades, metrics.max_drawdown, metrics.sharpe_ratio, cerebro.broker.getvalue())
+
+        conn.close()
+
+        # Return results for displaying in the web page
+        return {
+            "Starting Portfolio Value": cash,
+            "Ending Portfolio Value": cerebro.broker.getvalue(),
+            "Total Return": metrics.total_return,
+            "Number of Trades": metrics.trades,
+            "Winning Trades": metrics.winning_trades,
+            "Losing Trades": metrics.losing_trades,
+            "Max Drawdown": metrics.max_drawdown,
+            "Sharpe Ratio": metrics.sharpe_ratio
+        }
+
     except Exception as e:
-        print(f"An error occurred during backtesting: {e}")
-
-if __name__ == "__main__":
-    # Prompt for user input
-    data_path = input("Enter data path: ").strip()
-    cash = float(input("Enter starting cash amount: ").strip())
-
-    # Load other configurations from JSON
-    with open('../backtest/backtest_config.json', 'r') as f:
-        config = json.load(f)
-
-    for date_range in config['date_ranges']:
-        fromdate = datetime.datetime.strptime(date_range['fromdate'], '%Y-%m-%d')
-        todate = datetime.datetime.strptime(date_range['todate'], '%Y-%m-%d')
-
-        for strategy_conf in config['strategies']:
-            strategy_name = strategy_conf['name']
-            params = strategy_conf.get('params', {})
-            strategy_class = globals().get(strategy_name)
-
-            if not strategy_class:
-                print(f"Strategy {strategy_name} not found.")
-                continue
-
-            # Generate all possible combinations of parameters
-            try:
-                param_combinations = list(product(*[params[key]['range'] for key in params])) or [()]
-            except KeyError as e:
-                print(f"Missing 'range' for parameter {e} in strategy {strategy_name}")
-                continue
-
-            for param_set in param_combinations:
-                strategy_params = {key: value for key, value in zip(params.keys(), param_set)}
-                print(f"\nTesting {strategy_name} with params: {strategy_params}")
-                run_backtest(strategy_class, strategy_params, data_path, fromdate, todate, cash)
+        return f"An error occurred during backtesting: {e}"
