@@ -1,55 +1,42 @@
-const express = require('express');
-const cors = require('cors');
-const { startConsumer, stopConsumer } = require('./kafka/consumer');
-const { connectProducer, disconnectProducer } = require('./kafka/producer');
+require('dotenv').config();
+var createError = require('http-errors');
+var express = require('express');
+var path = require('path');
+var cookieParser = require('cookie-parser');
+var logger = require('morgan');
 
-const app = express();
-const port = process.env.PORT || 4000;
+var indexRouter = require('./routes/index');
+var usersRouter = require('./routes/users');
 
-// Middleware to handle JSON bodies
+var app = express();
+
+// view engine setup
+app.set('views', path.join(__dirname, 'views'));
+app.set('view engine', 'jade');
+
+app.use(logger('dev'));
 app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Use CORS middleware
-const corsOptions = {
-    origin: 'http://localhost:3000', // Ensure this matches the URL of your frontend
-    methods: ['GET', 'POST'], // Add other HTTP methods if needed
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true,
-};
-app.use(cors(corsOptions));
+app.use('/', indexRouter);
+app.use('/users', usersRouter);
 
-// Handle preflight requests
-app.options('*', cors(corsOptions));
-
-app.get('/api', (req, res) => res.send('Kafka Consumer is running'));
-
-// Signup route example
-app.post('/auth/signup', async (req, res) => {
-    try {
-        // Your signup logic here...
-        res.status(201).send('User signed up successfully');
-    } catch (error) {
-        res.status(500).send('Error signing up user');
-    }
+// catch 404 and forward to error handler
+app.use(function(req, res, next) {
+  next(createError(404));
 });
 
-// Additional API routes here...
+// error handler
+app.use(function(err, req, res, next) {
+  // set locals, only providing error in development
+  res.locals.message = err.message;
+  res.locals.error = req.app.get('env') === 'development' ? err : {};
 
-const server = app.listen(port, async () => {
-    console.log(`Server is running on port ${port}`);
-    await startConsumer();
-    await connectProducer();
+  // render the error page
+  res.status(err.status || 500);
+  res.render('error');
 });
 
-const shutdown = async () => {
-    console.log('Shutting down server...');
-    await stopConsumer();
-    await disconnectProducer();
-    server.close(() => {
-        console.log('Express server closed');
-        process.exit(0);
-    });
-};
-
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+module.exports = app;
