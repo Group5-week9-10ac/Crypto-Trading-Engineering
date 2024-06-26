@@ -3,6 +3,7 @@ env9
 env
 /data
 /home/jabez/Documents/week_9/Crypto-Trading-Engineering/scripts/backtest_config.json
+//home/jabez_kassa/week_9/Crypto-Trading-Engineering/node_modules
 =======
 # Byte-compiled / optimized / DLL files
 __pycache__/
