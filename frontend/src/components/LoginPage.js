@@ -1,67 +1,75 @@
 import React, { useState } from 'react';
 import { Form, Button, Alert } from 'react-bootstrap';
+import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { loginUser } from '../services/apiService'; // Import the loginUser function
-import { useNavigate } from 'react-router-dom';
+import { loginUser } from '../services/apiService';
 
 const LoginPage = () => {
-    const { register, handleSubmit, reset, formState: { errors } } = useForm();
-    const [show, setShow] = useState(false);
-    const [serverResponse, setServerResponse] = useState('');
-    const navigate = useNavigate();
+  const { register, handleSubmit, formState: { errors } } = useForm();
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertMessage, setAlertMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-    const submitForm = async (data) => {
-        try {
-            const response = await loginUser(data.username, data.password);
-            localStorage.setItem('jwtToken', response.token); // Store JWT token
-            navigate('/'); // Redirect to home or another protected route
-        } catch (error) {
-            console.error('Error logging in:', error);
-            setServerResponse('Invalid username or password.');
-            setShow(true);
-        }
-        reset();
-    };
+  const onSubmit = async (data) => {
+    setIsLoading(true);
 
-    return (
-        <div className="container">
-            <div className="form">
-                {show && (
-                    <Alert variant="danger" onClose={() => setShow(false)} dismissible>
-                        <p>{serverResponse}</p>
-                    </Alert>
-                )}
-                <h1>Login</h1>
-                <form>
-                    <Form.Group>
-                        <Form.Label>Username</Form.Label>
-                        <Form.Control
-                            type="text"
-                            placeholder="Your username"
-                            {...register("username", { required: true })}
-                        />
-                        {errors.username && <small style={{ color: "red" }}>Username is required</small>}
-                    </Form.Group>
-                    <br />
-                    <Form.Group>
-                        <Form.Label>Password</Form.Label>
-                        <Form.Control
-                            type="password"
-                            placeholder="Your password"
-                            {...register("password", { required: true })}
-                        />
-                        {errors.password && <small style={{ color: "red" }}>Password is required</small>}
-                    </Form.Group>
-                    <br />
-                    <Form.Group>
-                        <Button as="sub" variant="primary" onClick={handleSubmit(submitForm)}>Login</Button>
-                    </Form.Group>
-                    <br />
-                </form>
-            </div>
-        </div>
-    );
+    try {
+      const response = await loginUser(data.username, data.password);
+      console.log('Login success:', response);
+    } catch (error) {
+      console.error('Error logging in:', error);
+      if (error.response) {
+        setAlertMessage(error.response.data.message || 'An error occurred during login. Please try again.');
+      } else if (error.request) {
+        setAlertMessage('Network error. Please try again later.');
+      } else {
+        setAlertMessage('An unexpected error occurred. Please try again.');
+      }
+      setShowAlert(true);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="container">
+      <div className="form">
+        <h1>Login</h1>
+        {showAlert && (
+          <Alert variant="danger" onClose={() => setShowAlert(false)} dismissible>
+            <p>{alertMessage}</p>
+          </Alert>
+        )}
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <Form.Group>
+            <Form.Label>Username or Email</Form.Label>
+            <Form.Control type="text"
+              placeholder="Your username or email"
+              {...register("username", { required: true })}
+            />
+            {errors.username && <p style={{ color: "red" }}>Username or Email is required</p>}
+          </Form.Group>
+          <br />
+          <Form.Group>
+            <Form.Label>Password</Form.Label>
+            <Form.Control type="password"
+              placeholder="Your password"
+              {...register("password", { required: true })}
+            />
+            {errors.password && <p style={{ color: "red" }}>Password is required</p>}
+          </Form.Group>
+          <br />
+          <Button type="submit" variant="primary" disabled={isLoading}>{isLoading ? 'Logging in...' : 'Log In'}</Button>
+          <br />
+          <Form.Group>
+            <small>Don't have an account? <Link to='/signup'>Sign Up</Link></small>
+          </Form.Group>
+        </form>
+      </div>
+    </div>
+  );
 };
 
 export default LoginPage;
+
 

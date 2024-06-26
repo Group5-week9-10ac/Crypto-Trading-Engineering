@@ -6,6 +6,7 @@ import json
 import math
 from dotenv import load_dotenv
 import os
+import sys
 
 # Load environment variables from .env file
 load_dotenv()
@@ -81,8 +82,8 @@ class MetricsAnalyzer(bt.Analyzer):
             cur.execute(query, (
                 self.strategy.__class__.__name__, 
                 'btc', 
-                config['fromdate'],  # Use fromdate from the loaded config
-                config['todate'],    # Use todate from the loaded config
+                from_date,  # from_date passed from the command line
+                to_date,    # to_date passed from the command line
                 self.strategy.metrics['total_return'], 
                 self.strategy.metrics['trades'], 
                 self.strategy.metrics['winning_trades'], 
@@ -127,6 +128,7 @@ def fetch_data(symbol, fromdate, todate):
         return None
 
 # Function to run backtest
+
 def run_backtest(strategy_class, symbol, fromdate, todate, cash=10000.0, indicator_params=None):
     cerebro = bt.Cerebro()
     cerebro.addstrategy(strategy_class, **(indicator_params or {}))
@@ -161,15 +163,17 @@ def run_backtest(strategy_class, symbol, fromdate, todate, cash=10000.0, indicat
 
     return metrics_analyzer.strategy.metrics
 
-# Load configuration from JSON file
-with open('/home/moraa/Documents/10_academy/Week-9/Crypto-Trading-Engineering/MLOps/backend/src/run_backtest/backtest_config.json', 'r') as f:
-    config = json.load(f)
+if __name__ == "__main__":
+    if len(sys.argv) != 6:
+        print("Usage: python backtest.py <strategyName> <fromDate> <toDate> <initialCash> <paramsJson>")
+        sys.exit(1)
 
-# Run backtests for all strategies defined in the configuration
-for strategy_conf in config['strategies']:
-    strategy_name = strategy_conf['name']
-    params = strategy_conf.get('params', {})
-    
+    strategy_name = sys.argv[1]
+    from_date = sys.argv[2]
+    to_date = sys.argv[3]
+    initial_cash = float(sys.argv[4])
+    params = json.loads(sys.argv[5])
+
     # Resolve strategy class by name
     if strategy_name == 'SMAStrategy':
         strategy_class = bt.Strategy
@@ -184,15 +188,13 @@ for strategy_conf in config['strategies']:
     elif strategy_name == 'StochasticOscillatorStrategy':
         strategy_class = bt.Strategy
     else:
-        print(f"Unknown strategy: {strategy_name}. Skipping...")
-        continue
+        print(f"Unknown strategy: {strategy_name}")
+        sys.exit(1)
 
     symbol = 'btc'  # Adjust this based on your strategy and data
-    fromdate = datetime.datetime.strptime(config['fromdate'], '%Y-%m-%d')
-    todate = datetime.datetime.strptime(config['todate'], '%Y-%m-%d')
-    cash = config['cash']
+    from_date = datetime.datetime.strptime(from_date, '%Y-%m-%d')
+    to_date = datetime.datetime.strptime(to_date, '%Y-%m-%d')
 
-    metrics = run_backtest(strategy_class, symbol, fromdate, todate, cash, params)
-
-
+    metrics = run_backtest(strategy_class, symbol, from_date, to_date, initial_cash, params)
+    print(json.dumps(metrics))
 

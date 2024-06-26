@@ -1,9 +1,17 @@
 import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Route, Redirect } from 'react-router-dom';
 
-const PrivateRoute = () => {
+const PrivateRoute = ({ component: Component, ...rest }) => {
   const token = localStorage.getItem('token');
-  return token ? <Outlet /> : <Navigate to="/login" />;
+
+  return (
+    <Route
+      {...rest}
+      render={(props) =>
+        token ? <Component {...props} /> : <Redirect to="/login" />
+      }
+    />
+  );
 };
 
 export default PrivateRoute;

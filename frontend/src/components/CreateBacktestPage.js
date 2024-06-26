@@ -1,24 +1,24 @@
-import React, { useState } from "react";
-import { Form, Button } from "react-bootstrap";
-import "react-datepicker/dist/react-datepicker.css";
-import DatePicker from "react-datepicker";
-import Select from "react-select";
-import { fetchBacktestResults } from "../services/apiService"; // Import the API function
+import React, { useState } from 'react';
+import { Form, Button, Alert } from 'react-bootstrap';
+import DatePicker from 'react-datepicker';
+import Select from 'react-select';
+import { fetchBacktestResults } from '../services/apiService'; // Import the API function
 
 const CreateBacktestPage = () => {
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   const [selectedCoin, setSelectedCoin] = useState(null);
-  const [initialCash, setInitialCash] = useState("");
-  const [fmwValue, setFmwValue] = useState("");
-  const [smwValue, setSmwValue] = useState("");
-  const [stakeValue, setStakeValue] = useState("");
+  const [initialCash, setInitialCash] = useState('');
+  const [fmwValue, setFmwValue] = useState('');
+  const [smwValue, setSmwValue] = useState('');
+  const [stakeValue, setStakeValue] = useState('');
+  const [error, setError] = useState(null);
 
   const coinOptions = [
-    { value: "ETH", label: "Ethereum" },
-    { value: "BTC", label: "Bitcoin" },
-    { value: "SOL", label: "Solana" },
-    { value: "BNB", label: "Binance Coin" },
+    { value: 'ETH', label: 'Ethereum' },
+    { value: 'BTC', label: 'Bitcoin' },
+    { value: 'SOL', label: 'Solana' },
+    { value: 'BNB', label: 'Binance Coin' },
   ];
 
   const handleChange = (selectedOption) => {
@@ -32,7 +32,7 @@ const CreateBacktestPage = () => {
     const requestData = {
       startDate,
       endDate,
-      selectedCoin: selectedCoin ? selectedCoin.value : "",
+      selectedCoin: selectedCoin ? selectedCoin.value : '',
       initialCash,
       fmwValue,
       smwValue,
@@ -40,22 +40,14 @@ const CreateBacktestPage = () => {
     };
 
     try {
-      const data = await fetchBacktestResults(
-        requestData.startDate,
-        requestData.endDate,
-        requestData.selectedCoin,
-        requestData.initialCash,
-        requestData.smwValue,
-        requestData.fmwValue,
-        requestData.stakeValue
-      );
+      const data = await fetchBacktestResults(requestData);
       // Handle API response data
-      console.log("API Response:", data);
+      console.log('API Response:', data);
       // Reset form state if needed
       resetForm();
     } catch (error) {
-      console.error("Error fetching backtest results:", error);
-      // Handle errors if necessary
+      console.error('Error fetching backtest results:', error);
+      setError('Error fetching backtest results. Please try again.');
     }
   };
 
@@ -63,39 +55,35 @@ const CreateBacktestPage = () => {
     setStartDate(null);
     setEndDate(null);
     setSelectedCoin(null);
-    setInitialCash("");
-    setFmwValue("");
-    setSmwValue("");
-    setStakeValue("");
+    setInitialCash('');
+    setFmwValue('');
+    setSmwValue('');
+    setStakeValue('');
+    setError(null); // Clear any previous errors
   };
 
   return (
     <div className="form">
+      {error && (
+        <Alert variant="danger" onClose={() => setError(null)} dismissible>
+          <p>{error}</p>
+        </Alert>
+      )}
       <form onSubmit={handleSubmit}>
         <div className="date-container">
           <Form.Group>
             <Form.Label>Start Date</Form.Label>
-            <DatePicker
-              selected={startDate}
-              onChange={(date) => setStartDate(date)}
-            />
+            <DatePicker selected={startDate} onChange={(date) => setStartDate(date)} />
           </Form.Group>
           <Form.Group>
             <Form.Label>End Date</Form.Label>
-            <DatePicker
-              selected={endDate}
-              onChange={(date) => setEndDate(date)}
-            />
+            <DatePicker selected={endDate} onChange={(date) => setEndDate(date)} />
           </Form.Group>
         </div>
         <br />
         <Form.Group>
           <Form.Label>Coin</Form.Label>
-          <Select
-            value={selectedCoin}
-            options={coinOptions}
-            onChange={handleChange}
-          />
+          <Select value={selectedCoin} options={coinOptions} onChange={handleChange} />
         </Form.Group>
         <br />
         <Form.Group>

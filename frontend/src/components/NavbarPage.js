@@ -1,16 +1,16 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Container from "react-bootstrap/Container";
 import Nav from "react-bootstrap/Nav";
 import Navbar from "react-bootstrap/Navbar";
 
-const handleLogout = () => {
+const handleLogout = (navigate) => {
   localStorage.removeItem('token');
   localStorage.removeItem('refreshToken');
-  window.location.href = '/login';
+  navigate('/login'); // Use navigate instead of window.location.href
 };
 
-const LoggedInLinks = () => {
+const LoggedInLinks = ({ navigate }) => {
   return (
     <>
       <li className="nav-item">
@@ -19,7 +19,7 @@ const LoggedInLinks = () => {
         </Link>
       </li>
       <li className="nav-item">
-        <button className="nav-link active" onClick={handleLogout}>
+        <button className="nav-link active" onClick={() => handleLogout(navigate)}>
           Log Out
         </button>
       </li>
@@ -44,20 +44,21 @@ const LoggedOutLinks = () => {
   );
 };
 
-const NavBar = () => {
+const NavbarPage = () => {
   const token = localStorage.getItem('token');
   const logged = !!token;
+  const navigate = useNavigate();
 
   return (
-    <Navbar bg="dark" data-bs-theme="dark" style={{ marginTop: "20px" }}>
+    <Navbar bg="dark" variant="dark" style={{ marginTop: "20px" }}>
       <Container>
         <Navbar.Brand href="/">Home</Navbar.Brand>
         <Nav className="me-auto">
-          {logged ? <LoggedInLinks /> : <LoggedOutLinks />}
+          {logged ? <LoggedInLinks navigate={navigate} /> : <LoggedOutLinks />}
         </Nav>
       </Container>
     </Navbar>
   );
 };
 
-export default NavBar;
+export default NavbarPage;
