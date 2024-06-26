@@ -5,7 +5,7 @@ import datetime
 import json
 import math
 
-sys.path.append(os.path.join(os.getcwd(), '/home/jabez/Documents/week_9/Crypto-Trading-Engineering/backtest'))
+sys.path.append(os.path.join(os.getcwd(), '/home/jabez_kassa/week_9/Crypto-Trading-Engineering/backtest'))
 from backtest import MetricsAnalyzer
 from backtest import SMAStrategy 
 from backtest import SMAStrategy 
@@ -19,12 +19,12 @@ import backtest
 
 
 # Load configuration
-with open('backtest_config.json', 'r') as f:
+with open('/home/jabez_kassa/week_9/Crypto-Trading-Engineering/scripts/backtest_config.json', 'r') as f:
     config = json.load(f)
 
 data_path = config['data_path']
-fromdate = datetime.datetime.strptime(config['fromdate'], '%Y-%m-%d')
-todate = datetime.datetime.strptime(config['todate'], '%Y-%m-%d')
+fromdate = datetime.datetime.strptime(config['date_ranges'][0]['fromdate'], '%Y-%m-%d')
+todate = datetime.datetime.strptime(config['date_ranges'][0]['todate'], '%Y-%m-%d')
 cash = config['cash']
 
 def execute_backtest(strategy, data_path, fromdate, todate, cash, params):

@@ -5,7 +5,13 @@ env
 /home/jabez/Documents/week_9/Crypto-Trading-Engineering/scripts/backtest_config.json
 /home/jabez_kassa/week_9/Crypto-Trading-Engineering/node_modules
 /home/jabez_kassa/week_9/Crypto-Trading-Engineering/frontend/node_modules
+/home/jabez_kassa/week_9/Crypto-Trading-Engineering/scikit-learn
+/home/jabez_kassa/week_9/Crypto-Trading-Engineering/uni2ts
+/home/jabez_kassa/week_9/Crypto-Trading-Engineering/myenv
+/home/jabez_kassa/week_9/Crypto-Trading-Engineering/node_modules
+/home/jabez_kassa/week_9/Crypto-Trading-Engineering/database
 =======
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

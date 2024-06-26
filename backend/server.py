@@ -11,7 +11,7 @@ import plotly.graph_objs as go
 import numpy as np
 
 sys.path.append(os.path.join(os.getcwd(), '/home/jabez_kassa/week_9/Crypto-Trading-Engineering/scripts'))
-import coins, portfolio, forecast, db_conn
+import coins, portfolio, forecast, db_conn, moirai
 
 app = Flask(__name__)
 CORS(app)
@@ -88,8 +88,10 @@ def forecasts():
 
         # Convert Plotly figure to JSON for passing to front-end
         forecast_json = forecast_fig.to_json()
+        forecast_fig2 = moirai.moirai_forecast(df)
+        forecast_json2 = forecast_fig2.to_json()
 
-        return jsonify(forecast_json)
+        return jsonify(forecast_json, forecast_json2)
 
     except Exception as e:
         logging.error(f"Error in /forecasts: {e}")
