@@ -1,6 +1,6 @@
 import json
 from confluent_kafka import Consumer, KafkaError, KafkaException
-from backend.src.config.config import KAFKA_BOOTSTRAP_SERVERS, KAFKA_GROUP_ID
+from backend.src.kafka.config.config import KAFKA_BOOTSTRAP_SERVERS, KAFKA_GROUP_ID
 from dotenv import load_dotenv
 from services.backtest_service import initiate_backtest
 import os
