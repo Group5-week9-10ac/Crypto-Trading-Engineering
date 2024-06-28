@@ -35,3 +35,11 @@ CREATE TABLE IF NOT EXISTS backtest_results (
     max_drawdown FLOAT,
     sharpe_ratio FLOAT
 );
+
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(150) UNIQUE NOT NULL,
+    email VARCHAR(150) UNIQUE NOT NULL,
+    password VARCHAR(200) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
