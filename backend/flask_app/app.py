@@ -1,21 +1,26 @@
 from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
+from kafka import KafkaConsumer
+from threading import Thread
 import json
 import os
 import sys
 import logging
-from kafka import KafkaConsumer
-from threading import Thread
+from typing import Dict, Any
 
 # Add the parent directory to the sys.path to ensure proper module resolution
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-# Import the function for running backtests
+# Import application components
 from backend.backtest.backtest import run_backtest
 from backend.flask_app.kafka.producer import publish_to_kafka
 from backend.flask_app.config import Config
 from backend.flask_app.models import db, Scene, BacktestResult
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -24,121 +29,75 @@ db.init_app(app)
 # Initialize Flask-Migrate
 migrate = Migrate(app, db)
 
-# Kafka configuration
-KAFKA_BROKER_URL = 'localhost:9092'
-KAFKA_TOPIC = 'backtest_scenes'
+def create_consumer(topic: str, broker_url: str) -> KafkaConsumer:
+    """
+    Create and return a Kafka consumer for the given topic and broker URL.
 
-# Kafka consumer setup
-consumer = KafkaConsumer(
-    KAFKA_TOPIC,
-    bootstrap_servers=KAFKA_BROKER_URL,
-    value_deserializer=lambda x: json.loads(x.decode('utf-8'))
-)
+    Args:
+        topic (str): The Kafka topic to consume messages from.
+        broker_url (str): The Kafka broker URL.
 
-# Function to consume scenes from Kafka
-def consume_scenes():
+    Returns:
+        KafkaConsumer: Configured KafkaConsumer instance.
+    """
+    return KafkaConsumer(
+        topic,
+        bootstrap_servers=broker_url,
+        value_deserializer=lambda x: json.loads(x.decode('utf-8'))
+    )
+
+def consume_scenes(consumer: KafkaConsumer) -> None:
+    """
+    Consume messages from Kafka and process them.
+
+    Args:
+        consumer (KafkaConsumer): KafkaConsumer instance to consume messages from.
+    """
     for message in consumer:
         scene_data = message.value
-        print(f"Received scene from Kafka: {scene_data}")
+        logger.info(f"Received scene from Kafka: {scene_data}")
 
-        # Extract necessary data from scene_data
-        scene_id = scene_data['scene_id']
-        strategy_name = scene_data['strategyName']
-        from_date = scene_data['fromDate']
-        to_date = scene_data['toDate']
-        initial_cash = float(scene_data['initialCash'])
-        parameters = scene_data['parameters']
+        try:
+            # Extract necessary data from scene_data
+            scene_id = scene_data['scene_id']
+            strategy_name = scene_data['strategyName']
+            from_date = scene_data['fromDate']
+            to_date = scene_data['toDate']
+            initial_cash = float(scene_data['initialCash'])
+            parameters = scene_data['parameters']
 
-        # Fetch scene details from database
-        scene = Scene.query.get(scene_id)
-        if not scene:
-            print(f"Scene with ID {scene_id} not found in database")
-            continue
+            # Fetch scene details from database
+            scene = Scene.query.get(scene_id)
+            if not scene:
+                logger.warning(f"Scene with ID {scene_id} not found in database")
+                continue
 
-        # Call your existing backtesting function
-        results = run_backtest(scene, from_date, to_date, initial_cash, parameters)
+            # Call backtesting function
+            results = run_backtest(scene, from_date, to_date, initial_cash, parameters)
 
-        # If results is None, handle the error
-        if results is None:
-            print("Backtesting returned None, check input parameters and data availability")
-            continue
+            if results is None:
+                logger.warning("Backtesting returned None, check input parameters and data availability")
+                continue
 
-        # Save results to database
-        save_backtest_results(scene_id=scene_id, results=results)
+            # Save results and publish them
+            save_backtest_results(scene_id, results)
+            publish_to_kafka(results)
 
-        # Publish results to Kafka
-        publish_to_kafka(results)
+        except Exception as e:
+            logger.error(f"Error processing Kafka message: {e}")
 
-# Routes
-@app.route('/')
-def index():
-    scenes = Scene.query.all()
-    return render_template('index.html', scenes=scenes)
+def save_backtest_results(scene_id: int, results: Dict[str, Any]) -> None:
+    """
+    Save backtest results to the database.
 
-@app.route('/api/run_backtest', methods=['POST'])
-def api_run_backtest():
+    Args:
+        scene_id (int): The ID of the scene for which results are saved.
+        results (Dict[str, Any]): The backtest results to be saved.
+
+    Raises:
+        Exception: If an error occurs while saving the results.
+    """
     try:
-        data = request.get_json()
-        app.logger.info(f"Received data: {data}")  # Debugging print to check received JSON
-
-        # Extract data from JSON
-        scene_id = data['scene_id']
-        strategy_name = data['strategyName']
-        from_date = data['fromDate']
-        to_date = data['toDate']
-        initial_cash = float(data['initialCash'])
-        parameters = data['parameters']
-
-        # Check if backtest results for the given range and parameters exist
-        existing_results = BacktestResult.query.filter_by(
-            scene_id=scene_id,
-            strategy_name=strategy_name,
-            from_date=from_date,
-            to_date=to_date
-        ).first()
-
-        if existing_results:
-            app.logger.info("Fetching existing backtest results from database.")
-            return jsonify({
-                'status': 'success',
-                'results': existing_results.serialize()  # Assumes you have a serialize method in BacktestResult
-            })
-
-        # Fetch scene details from database
-        scene = Scene.query.get(scene_id)
-        if not scene:
-            raise ValueError(f"Scene with ID {scene_id} not found in database")
-
-        # Call your existing backtesting function
-        results = run_backtest(scene, from_date, to_date, initial_cash, parameters)
-
-        # If results is None, handle the error
-        if results is None:
-            raise ValueError("Backtesting returned None, check input parameters and data availability")
-
-        # Save results to database
-        save_backtest_results(scene_id=scene_id, results=results)
-
-        # Publish results to Kafka
-        publish_to_kafka(results)
-
-        # Return the results
-        return jsonify({
-            'status': 'success',
-            'results': results
-        })
-
-    except Exception as e:
-        app.logger.error(f"Error running backtest: {e}")
-        return jsonify({'error': f"Error running backtest: {e}"}), 500
-
-@app.route('/favicon.ico')
-def favicon():
-    return app.send_static_file('favicon.ico')
-
-def save_backtest_results(scene_id, results):
-    try:
-        # Save results to BacktestResult table
         result = BacktestResult(
             scene_id=scene_id,
             strategy_name=results['strategy_name'],
@@ -156,13 +115,92 @@ def save_backtest_results(scene_id, results):
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        app.logger.error(f"Error saving backtest results: {e}")
+        logger.error(f"Error saving backtest results: {e}")
+
+@app.route('/')
+def index() -> str:
+    """
+    Render the index page with a list of scenes.
+
+    Returns:
+        str: Rendered HTML for the index page.
+    """
+    scenes = Scene.query.all()
+    return render_template('index.html', scenes=scenes)
+
+@app.route('/api/run_backtest', methods=['POST'])
+def api_run_backtest() -> Any:
+    """
+    Handle backtest request and return results.
+
+    Returns:
+        Any: JSON response containing the status and results or error message.
+    """
+    try:
+        data = request.get_json()
+        logger.info(f"Received data: {data}")
+
+        # Extract data from JSON
+        scene_id = data['scene_id']
+        strategy_name = data['strategyName']
+        from_date = data['fromDate']
+        to_date = data['toDate']
+        initial_cash = float(data['initialCash'])
+        parameters = data['parameters']
+
+        # Check if backtest results already exist
+        existing_results = BacktestResult.query.filter_by(
+            scene_id=scene_id,
+            strategy_name=strategy_name,
+            from_date=from_date,
+            to_date=to_date
+        ).first()
+
+        if existing_results:
+            logger.info("Fetching existing backtest results from database.")
+            return jsonify({
+                'status': 'success',
+                'results': existing_results.serialize()  # Assumes you have a serialize method in BacktestResult
+            })
+
+        # Fetch scene details from database
+        scene = Scene.query.get(scene_id)
+        if not scene:
+            raise ValueError(f"Scene with ID {scene_id} not found in database")
+
+        # Call backtesting function
+        results = run_backtest(scene, from_date, to_date, initial_cash, parameters)
+
+        if results is None:
+            raise ValueError("Backtesting returned None, check input parameters and data availability")
+
+        # Save results and publish them
+        save_backtest_results(scene_id, results)
+        publish_to_kafka(results)
+
+        return jsonify({
+            'status': 'success',
+            'results': results
+        })
+
+    except Exception as e:
+        logger.error(f"Error running backtest: {e}")
+        return jsonify({'error': f"Error running backtest: {e}"}), 500
+
+@app.route('/favicon.ico')
+def favicon() -> str:
+    """
+    Serve the favicon file.
+
+    Returns:
+        str: Path to the favicon file.
+    """
+    return app.send_static_file('favicon.ico')
 
 if __name__ == "__main__":
-    # Start Kafka consumer as a background process
-    consumer_thread = Thread(target=consume_scenes)
+    kafka_consumer = create_consumer(Config.KAFKA_TOPIC, Config.KAFKA_BROKER_URL)
+    consumer_thread = Thread(target=consume_scenes, args=(kafka_consumer,))
     consumer_thread.daemon = True
     consumer_thread.start()
 
-    # Start Flask app
     app.run(debug=True)
