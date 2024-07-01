@@ -207,50 +207,60 @@ def fetch_data(symbol, fromdate, todate):
 
 # Function to run backtest
 def run_backtest(strategy_name, from_date, to_date, cash=10000.0, params=None):
-    cerebro = bt.Cerebro()
-    
-    # Add the strategy to cerebro
-    strategies = {
-        'SMAStrategy': SMAStrategy,
-        'EMAStrategy': EMAStrategy,
-        'RSIStrategy': RSIStrategy,
-        'BollingerBandsStrategy': BollingerBandsStrategy,
-        'AroonOscillatorStrategy': AroonOscillatorStrategy,
-        'StochasticOscillatorStrategy': StochasticOscillatorStrategy
-    }
+    try:
+        # Initialize Cerebro engine
+        cerebro = bt.Cerebro()
+        
+        # Strategy dictionary
+        strategies = {
+            'SMAStrategy': SMAStrategy,
+            'EMAStrategy': EMAStrategy,
+            'RSIStrategy': RSIStrategy,
+            'BollingerBandsStrategy': BollingerBandsStrategy,
+            'AroonOscillatorStrategy': AroonOscillatorStrategy,
+            'StochasticOscillatorStrategy': StochasticOscillatorStrategy
+        }
 
-    if strategy_name in strategies:
-        cerebro.addstrategy(strategies[strategy_name], **params)
-    else:
-        print(f"Strategy {strategy_name} is not implemented.")
+        # Check if strategy exists
+        if strategy_name not in strategies:
+            raise ValueError(f"Strategy '{strategy_name}' is not implemented.")
+
+        # Add strategy to Cerebro
+        cerebro.addstrategy(strategies[strategy_name], **(params or {}))
+
+        # Fetch data
+        data = fetch_data('btc', from_date, to_date)
+        if data is None or data.empty:
+            raise ValueError(f"No data available for 'btc' between {from_date} and {to_date}")
+
+        # Add data feed to Cerebro
+        data_feed = bt.feeds.PandasData(dataname=data)
+        cerebro.adddata(data_feed)
+        cerebro.broker.setcash(cash)
+        cerebro.addanalyzer(MetricsAnalyzer, _name='metrics')
+
+        # Print initial state
+        print(f"Running backtest for {strategy_name} on 'btc'")
+        print(f"Data Range: {from_date} to {to_date}")
+        print(f"Starting Portfolio Value: {cerebro.broker.getvalue():.2f}")
+
+        # Run backtest
+        results = cerebro.run()
+        if not results:
+            raise RuntimeError("Backtesting returned None, check input parameters and data availability")
+
+        metrics_analyzer = results[0].analyzers.metrics
+
+        # Print results
+        print(f"Ending Portfolio Value: {cerebro.broker.getvalue():.2f}")
+        print(f"Total Return: {metrics_analyzer.strategy.metrics['total_return']:.2f}%")
+        print(f"Number of Trades: {metrics_analyzer.strategy.metrics['trades']}")
+        print(f"Winning Trades: {metrics_analyzer.strategy.metrics['winning_trades']}")
+        print(f"Losing Trades: {metrics_analyzer.strategy.metrics['losing_trades']}")
+        print(f"Max Drawdown: {metrics_analyzer.strategy.metrics['max_drawdown']:.2f}%")
+        print(f"Sharpe Ratio: {metrics_analyzer.strategy.metrics['sharpe_ratio']:.2f}")
+
+        return metrics_analyzer.strategy.metrics
+    except Exception as e:
+        print(f"Error running backtest: {str(e)}")
         return None
-
-    # Fetch data from PostgreSQL
-    data = fetch_data('btc', from_date, to_date)  # Adjust symbol as per your data
-    if data is None or data.empty:
-        print(f"No data available for 'btc' between {from_date} and {to_date}")
-        return None
-
-    # Create a Data Feed
-    data_feed = bt.feeds.PandasData(dataname=data)
-    cerebro.adddata(data_feed)
-    cerebro.broker.setcash(cash)
-
-    cerebro.addanalyzer(MetricsAnalyzer, _name='metrics')
-
-    print(f"Running backtest for {strategy_name} on 'btc'")
-    print(f"Data Range: {from_date} to {to_date}")
-
-    print(f"Starting Portfolio Value: {cerebro.broker.getvalue():.2f}")
-    results = cerebro.run()
-    metrics_analyzer = results[0].analyzers.metrics
-
-    print(f"Ending Portfolio Value: {cerebro.broker.getvalue():.2f}")
-    print(f"Total Return: {metrics_analyzer.strategy.metrics['total_return']:.2f}%")
-    print(f"Number of Trades: {metrics_analyzer.strategy.metrics['trades']}")
-    print(f"Winning Trades: {metrics_analyzer.strategy.metrics['winning_trades']}")
-    print(f"Losing Trades: {metrics_analyzer.strategy.metrics['losing_trades']}")
-    print(f"Max Drawdown: {metrics_analyzer.strategy.metrics['max_drawdown']:.2f}%")
-    print(f"Sharpe Ratio: {metrics_analyzer.strategy.metrics['sharpe_ratio']:.2f}")
-
-    return metrics_analyzer.strategy.metrics

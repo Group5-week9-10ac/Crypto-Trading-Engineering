@@ -6,6 +6,7 @@ import os
 import sys
 import logging
 from kafka import KafkaConsumer
+from threading import Thread
 
 # Add the parent directory to the sys.path to ensure proper module resolution
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
@@ -46,11 +47,7 @@ def consume_scenes():
         from_date = scene_data['fromDate']
         to_date = scene_data['toDate']
         initial_cash = float(scene_data['initialCash'])
-        parameters = {
-            'indicator': scene_data['parameters']['indicator'],
-            'indicator_period': int(scene_data['parameters']['indicatorPeriod']),
-            'symbol': scene_data['parameters']['symbol']
-        }
+        parameters = scene_data['parameters']
 
         # Fetch scene details from database
         scene = Scene.query.get(scene_id)
@@ -82,7 +79,7 @@ def index():
 def api_run_backtest():
     try:
         data = request.get_json()
-        print(f"Received data: {data}")  # Debugging print to check received JSON
+        app.logger.info(f"Received data: {data}")  # Debugging print to check received JSON
 
         # Extract data from JSON
         scene_id = data['scene_id']
@@ -90,11 +87,22 @@ def api_run_backtest():
         from_date = data['fromDate']
         to_date = data['toDate']
         initial_cash = float(data['initialCash'])
-        parameters = {
-            'indicator': data['parameters']['indicator'],
-            'indicator_period': int(data['parameters']['indicator_period']),  # Ensure indicator_period is converted to int
-            'symbol': data['parameters']['symbol']
-        }
+        parameters = data['parameters']
+
+        # Check if backtest results for the given range and parameters exist
+        existing_results = BacktestResult.query.filter_by(
+            scene_id=scene_id,
+            strategy_name=strategy_name,
+            from_date=from_date,
+            to_date=to_date
+        ).first()
+
+        if existing_results:
+            app.logger.info("Fetching existing backtest results from database.")
+            return jsonify({
+                'status': 'success',
+                'results': existing_results.serialize()  # Assumes you have a serialize method in BacktestResult
+            })
 
         # Fetch scene details from database
         scene = Scene.query.get(scene_id)
@@ -121,7 +129,7 @@ def api_run_backtest():
         })
 
     except Exception as e:
-        print(f"Error running backtest: {e}")
+        app.logger.error(f"Error running backtest: {e}")
         return jsonify({'error': f"Error running backtest: {e}"}), 500
 
 @app.route('/favicon.ico')
@@ -148,11 +156,10 @@ def save_backtest_results(scene_id, results):
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        print(f"Error saving backtest results: {e}")
+        app.logger.error(f"Error saving backtest results: {e}")
 
 if __name__ == "__main__":
     # Start Kafka consumer as a background process
-    from threading import Thread
     consumer_thread = Thread(target=consume_scenes)
     consumer_thread.daemon = True
     consumer_thread.start()

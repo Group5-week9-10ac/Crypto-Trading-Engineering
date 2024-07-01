@@ -18,7 +18,6 @@ class Scene(db.Model):
         self.cash = cash
         self.strategies = strategies
 
-
 class BacktestResult(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     scene_id = db.Column(db.Integer, db.ForeignKey('scene.id', ondelete='CASCADE'), nullable=False)
@@ -33,3 +32,18 @@ class BacktestResult(db.Model):
     max_drawdown = db.Column(db.Float)
     sharpe_ratio = db.Column(db.Float)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def serialize(self):
+        return {
+            'scene_id': self.scene_id,
+            'strategy_name': self.strategy_name,
+            'symbol': self.symbol,
+            'from_date': self.from_date.strftime('%Y-%m-%d'),
+            'to_date': self.to_date.strftime('%Y-%m-%d'),
+            'total_return': self.total_return,
+            'trades': self.trades,
+            'winning_trades': self.winning_trades,
+            'losing_trades': self.losing_trades,
+            'max_drawdown': self.max_drawdown,
+            'sharpe_ratio': self.sharpe_ratio
+        }

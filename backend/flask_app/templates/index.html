@@ -2,141 +2,86 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Backtest Form</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
-        label {
-            display: block;
-            margin-top: 10px;
-        }
-        input, select {
-            width: 100%;
-            padding: 10px;
-            margin-top: 5px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-        button {
-            margin-top: 20px;
-            padding: 10px 20px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        #result {
-            margin-top: 20px;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            background-color: #f8f9fa;
-        }
-    </style>
+    <title>Run Backtest</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
 </head>
 <body>
-    <h1>Backtest Form</h1>
-    <form id="backtestForm">
-        <label for="sceneId">Scene ID:</label>
-        <input type="number" id="sceneId" name="scene_id" required>
-
-        <label for="strategyName">Strategy Name:</label>
-        <input type="text" id="strategyName" name="strategyName" required>
-
-        <label for="fromDate">From Date:</label>
-        <input type="date" id="fromDate" name="fromDate" required>
-
-        <label for="toDate">To Date:</label>
-        <input type="date" id="toDate" name="toDate" required>
-
-        <label for="initialCash">Initial Cash:</label>
-        <input type="number" id="initialCash" name="initialCash" value="10000.0" step="any" required>
-
-        <label for="indicator">Indicator:</label>
-        <select id="indicator" name="indicator">
-            <option value="SMA">SMA</option>
-            <option value="EMA">EMA</option>
-            <option value="RSI">RSI</option>
-            <!-- Add more options as needed -->
-        </select>
-
-        <label for="indicatorPeriod">Indicator Period:</label>
-        <input type="number" id="indicatorPeriod" name="indicatorPeriod" value="20" required>
-
-        <label for="symbol">Symbol:</label>
-        <input type="text" id="symbol" name="symbol" value="BTC/USD" required>
-
-        <button type="submit">Run Backtest</button>
+<div class="container mt-5">
+    <h1 class="mb-4">Run Backtest</h1>
+    <form id="backtest-form">
+        <input type="hidden" id="scene_id" name="scene_id" value="1"> <!-- Update the value as needed -->
+        <div class="form-group">
+            <label for="strategyName">Strategy</label>
+            <select class="form-control" id="strategyName" required>
+                <option value="">Select a strategy</option>
+                <option value="SMAStrategy">SMA Strategy</option>
+                <option value="EMAStrategy">EMA Strategy</option>
+                <option value="RSIStrategy">RSI Strategy</option>
+                <option value="BollingerBandsStrategy">Bollinger Bands Strategy</option>
+                <option value="AroonOscillatorStrategy">Aroon Oscillator Strategy</option>
+                <option value="StochasticOscillatorStrategy">Stochastic Oscillator Strategy</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="fromDate">From Date</label>
+            <input type="date" class="form-control" id="fromDate" required>
+            <small class="form-text text-muted">Enter the start date for the backtest (e.g., 2023-01-01).</small>
+        </div>
+        <div class="form-group">
+            <label for="toDate">To Date</label>
+            <input type="date" class="form-control" id="toDate" required>
+            <small class="form-text text-muted">Enter the end date for the backtest (e.g., 2023-05-01).</small>
+        </div>
+        <div class="form-group">
+            <label for="initialCash">Initial Cash</label>
+            <input type="number" class="form-control" id="initialCash" value="10000" required>
+            <small class="form-text text-muted">Enter the initial cash amount (default: 10000).</small>
+        </div>
+        <button type="submit" class="btn btn-primary">Run Backtest</button>
     </form>
+    <div id="result" class="mt-4"></div>
+</div>
+<script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.11.0/umd/popper.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+<script>
+    document.getElementById('backtest-form').addEventListener('submit', function(event) {
+        event.preventDefault();
+        
+        const scene_id = document.getElementById('scene_id').value;
+        const strategyName = document.getElementById('strategyName').value;
+        const fromDate = document.getElementById('fromDate').value;
+        const toDate = document.getElementById('toDate').value;
+        const initialCash = document.getElementById('initialCash').value;
 
-    <div id="result"></div>
+        const data = {
+            scene_id,
+            strategyName,
+            fromDate,
+            toDate,
+            initialCash,
+            parameters: {}
+        };
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const form = document.getElementById('backtestForm');
-
-            form.addEventListener('submit', async function(event) {
-                event.preventDefault();
-
-                const formData = new FormData(this);
-                const formObject = {
-                    scene_id: formData.get('scene_id'),
-                    strategyName: formData.get('strategyName'),
-                    fromDate: formData.get('fromDate'),
-                    toDate: formData.get('toDate'),
-                    initialCash: parseFloat(formData.get('initialCash')),
-                    parameters: {
-                        indicator: formData.get('indicator'),
-                        indicator_period: parseInt(formData.get('indicatorPeriod')),
-                        symbol: formData.get('symbol')
-                    }
-                };
-
-                try {
-                    const response = await fetch('/api/run_backtest', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(formObject)
-                    });
-
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        throw new Error(`Backend Error: ${errorText}`);
-                    }
-
-                    const result = await response.json();
-                    displayResult(result);
-                } catch (error) {
-                    console.error('Frontend Error:', error);
-                    displayResult({ error: error.message });
-                }
-            });
-
-            function displayResult(result) {
-                const resultContainer = document.getElementById('result');
-                if (result.error) {
-                    resultContainer.innerText = `Error: ${result.error}`;
-                } else if (result && Object.keys(result).length > 0) {
-                    resultContainer.innerText = JSON.stringify(result, null, 2);
-                } else {
-                    resultContainer.innerText = 'No result received or empty response.';
-                }
+        fetch('/api/run_backtest', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.error) {
+                document.getElementById('result').innerHTML = `<div class="alert alert-danger">${result.error}</div>`;
+            } else {
+                document.getElementById('result').innerHTML = `<div class="alert alert-success">Backtest completed successfully</div>`;
             }
+        })
+        .catch(error => {
+            document.getElementById('result').innerHTML = `<div class="alert alert-danger">${error}</div>`;
         });
-    </script>
+    });
+</script>
 </body>
 </html>

@@ -9,4 +9,5 @@ scikit-learn
 matplotlib
 pandas
 sqlalchemy
+apache-airflow
 
