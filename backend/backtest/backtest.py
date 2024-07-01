@@ -8,93 +8,127 @@ from dotenv import load_dotenv
 import os
 import mlflow
 import mlflow.sklearn
+import logging
+from typing import Dict, Optional, Type
 
 # Load environment variables from .env file
 load_dotenv()
 
-# Define your strategy classes (unchanged)
+# Setup logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+def log_exceptions(func):
+    """
+    Decorator to log exceptions for functions.
+    """
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            logging.error(f"Exception occurred in {func.__name__}: {e}")
+            raise
+    return wrapper
 
 class SMAStrategy(bt.Strategy):
+    """
+    Strategy using Simple Moving Average (SMA).
+    """
     params = (('period', 15),)
 
     def __init__(self):
         self.sma = bt.indicators.SimpleMovingAverage(self.data.close, period=self.params.period)
 
     def next(self):
-        if not self.position:  # not in the market
+        if not self.position:
             if self.data.close[0] > self.sma[0]:
                 self.buy()
         elif self.data.close[0] < self.sma[0]:
             self.sell()
 
 class EMAStrategy(bt.Strategy):
-    params = (('period', 15),)
+    """
+    Strategy using Exponential Moving Average (EMA).
+    """
+    params = (('period', 20),)
 
     def __init__(self):
         self.ema = bt.indicators.ExponentialMovingAverage(self.data.close, period=self.params.period)
 
     def next(self):
-        if not self.position:  # not in the market
+        if not self.position:
             if self.data.close[0] > self.ema[0]:
                 self.buy()
         elif self.data.close[0] < self.ema[0]:
             self.sell()
 
 class RSIStrategy(bt.Strategy):
-    params = (('period', 14),)
+    """
+    Strategy using Relative Strength Index (RSI).
+    """
+    params = (('period', 14), ('overbought', 70), ('oversold', 30))
 
     def __init__(self):
-        self.rsi = bt.indicators.RelativeStrengthIndex(self.data.close, period=self.params.period)
+        self.rsi = bt.indicators.RelativeStrengthIndex(period=self.params.period)
 
     def next(self):
         if not self.position:
-            if self.rsi < 30:
+            if self.rsi < self.params.oversold:
                 self.buy()
-        elif self.rsi > 70:
+        elif self.rsi > self.params.overbought:
             self.sell()
 
 class BollingerBandsStrategy(bt.Strategy):
-    params = (('period', 20), ('devfactor', 2.0),)
+    """
+    Strategy using Bollinger Bands.
+    """
+    params = (('period', 20), ('devfactor', 2))
 
     def __init__(self):
-        self.bbands = bt.indicators.BollingerBands(self.data.close, period=self.params.period, devfactor=self.params.devfactor)
+        self.bbands = bt.indicators.BollingerBands(period=self.params.period, devfactor=self.params.devfactor)
 
     def next(self):
         if not self.position:
-            if self.data.close[0] < self.bbands.lines.bot[0]:
+            if self.data.close[0] < self.bbands.lines.bot:
                 self.buy()
-        elif self.data.close[0] > self.bbands.lines.top[0]:
+        elif self.data.close[0] > self.bbands.lines.top:
             self.sell()
 
 class AroonOscillatorStrategy(bt.Strategy):
+    """
+    Strategy using Aroon Oscillator.
+    """
     params = (('period', 14),)
 
     def __init__(self):
-        self.aroon = bt.indicators.AroonOscillator(self.data.close, period=self.params.period)
+        self.aroon = bt.indicators.Aroon(period=self.params.period)
 
     def next(self):
         if not self.position:
-            if self.aroon > 50:
+            if self.aroon.lines.up > self.aroon.lines.down:
                 self.buy()
-        elif self.aroon < -50:
+        elif self.aroon.lines.up < self.aroon.lines.down:
             self.sell()
 
 class StochasticOscillatorStrategy(bt.Strategy):
-    params = (('period', 14), ('percK', 3), ('percD', 3),)
+    """
+    Strategy using Stochastic Oscillator.
+    """
+    params = (('period', 14), ('overbought', 80), ('oversold', 20))
 
     def __init__(self):
-        self.stoch = bt.indicators.Stochastic(self.data, period=self.params.period, period_dfast=self.params.percK, period_dslow=self.params.percD)
+        self.stochastic = bt.indicators.Stochastic(period=self.params.period)
 
     def next(self):
         if not self.position:
-            if self.stoch.percK < 20:
+            if self.stochastic.lines.percK < self.params.oversold:
                 self.buy()
-        elif self.stoch.percK > 80:
+        elif self.stochastic.lines.percK > self.params.overbought:
             self.sell()
 
-# Metrics analyzer class (unchanged)
-
 class MetricsAnalyzer(bt.Analyzer):
+    """
+    Analyzer class for calculating and storing backtest metrics.
+    """
     def start(self):
         self.returns = []
         self.trades = 0
@@ -104,7 +138,7 @@ class MetricsAnalyzer(bt.Analyzer):
         self.max_drawdown = 0
         self.sharpe_ratio = 0
 
-    def notify_trade(self, trade):
+    def notify_trade(self, trade: bt.Trade) -> None:
         if trade.isclosed:
             self.trades += 1
             if trade.pnl > 0:
@@ -112,23 +146,20 @@ class MetricsAnalyzer(bt.Analyzer):
             else:
                 self.losing_trades += 1
 
-    def next(self):
+    def next(self) -> None:
         portfolio_value = self.strategy.broker.getvalue()
         self.returns.append(portfolio_value)
 
-    def stop(self):
-        # Calculate total return
+    def stop(self) -> None:
         initial_value = self.returns[0] if self.returns else 0
         final_value = self.returns[-1] if self.returns else 0
         total_return = (final_value - initial_value) / initial_value if initial_value else 0
 
-        # Calculate Sharpe Ratio
         if len(self.returns) > 1:
             avg_return = sum(self.returns) / len(self.returns)
             stddev = math.sqrt(sum((r - avg_return) ** 2 for r in self.returns) / len(self.returns))
             self.sharpe_ratio = avg_return / stddev if stddev else 0
 
-        # Calculate Max Drawdown
         peak = self.returns[0]
         for value in self.returns:
             if value > peak:
@@ -137,7 +168,6 @@ class MetricsAnalyzer(bt.Analyzer):
             if drawdown > self.max_drawdown:
                 self.max_drawdown = drawdown
 
-        # Store metrics in strategy object
         self.strategy.metrics = {
             'total_return': total_return * 100,
             'trades': self.trades,
@@ -147,8 +177,13 @@ class MetricsAnalyzer(bt.Analyzer):
             'sharpe_ratio': self.sharpe_ratio
         }
 
-        # Insert results into PostgreSQL (unchanged)
+        self._store_results()
 
+    @log_exceptions
+    def _store_results(self) -> None:
+        """
+        Store metrics in PostgreSQL.
+        """
         try:
             conn = psycopg2.connect(
                 dbname=os.getenv('POSTGRES_DB'),
@@ -178,12 +213,19 @@ class MetricsAnalyzer(bt.Analyzer):
             cur.close()
             conn.close()
 
-        except Exception as e:
-            print(f"Error storing results in PostgreSQL: {e}")
+        except psycopg2.Error as e:
+            logging.error(f"Database error: {e}")
 
-# Function to fetch data from PostgreSQL (unchanged)
+@log_exceptions
+def fetch_data(symbol: str, fromdate: str, todate: str) -> Optional[pd.DataFrame]:
+    """
+    Fetch historical trading data from PostgreSQL database.
 
-def fetch_data(symbol, fromdate, todate):
+    :param symbol: The symbol of the asset.
+    :param fromdate: The start date of the data.
+    :param todate: The end date of the data.
+    :return: DataFrame containing the fetched data, or None if an error occurs.
+    """
     try:
         conn = psycopg2.connect(
             dbname=os.getenv('POSTGRES_DB'),
@@ -198,7 +240,7 @@ def fetch_data(symbol, fromdate, todate):
         data = cur.fetchall()
 
         df = pd.DataFrame(data, columns=['date', 'open', 'high', 'low', 'close', 'volume'])
-        df['date'] = pd.to_datetime(df['date'])  # Convert date column to datetime format
+        df['date'] = pd.to_datetime(df['date'])
         df.set_index('date', inplace=True)
 
         cur.close()
@@ -206,18 +248,37 @@ def fetch_data(symbol, fromdate, todate):
 
         return df
 
-    except Exception as e:
-        print(f"Error fetching data from PostgreSQL: {e}")
+    except psycopg2.Error as e:
+        logging.error(f"Error fetching data from PostgreSQL: {e}")
         return None
 
-# Function to run backtest
-def run_backtest(strategy_name, from_date, to_date, cash=10000.0, params=None):
+@log_exceptions
+def save_results_to_json(metrics: Dict[str, float], filename: str = 'backtest_results.json') -> None:
+    """
+    Save the backtest results to a JSON file.
+
+    :param metrics: Dictionary containing the metrics to be saved.
+    :param filename: The filename where the results will be saved.
+    """
+    with open(filename, 'w') as f:
+        json.dump(metrics, f)
+
+@log_exceptions
+def run_backtest(strategy_name: str, from_date: str, to_date: str, cash: float = 10000.0, params: Optional[Dict[str, float]] = None) -> Optional[Dict[str, float]]:
+    """
+    Run the backtest for a given strategy and log the results with MLflow.
+
+    :param strategy_name: The name of the strategy to test.
+    :param from_date: The start date for the backtest.
+    :param to_date: The end date for the backtest.
+    :param cash: The initial cash for the backtest.
+    :param params: Optional parameters for the strategy.
+    :return: Dictionary of metrics if successful, None if failed.
+    """
     try:
-        # Initialize MLflow
-        mlflow.set_experiment("Backtest_Experiments")  # Set the experiment name
+        mlflow.set_experiment("Backtest_Experiments")
         mlflow.start_run()
 
-        # Log parameters
         mlflow.log_param('strategy_name', strategy_name)
         mlflow.log_param('from_date', from_date)
         mlflow.log_param('to_date', to_date)
@@ -226,11 +287,9 @@ def run_backtest(strategy_name, from_date, to_date, cash=10000.0, params=None):
             for key, value in params.items():
                 mlflow.log_param(key, value)
 
-        # Initialize Cerebro engine
         cerebro = bt.Cerebro()
         
-        # Strategy dictionary
-        strategies = {
+        strategies: Dict[str, Type[bt.Strategy]] = {
             'SMAStrategy': SMAStrategy,
             'EMAStrategy': EMAStrategy,
             'RSIStrategy': RSIStrategy,
@@ -239,37 +298,29 @@ def run_backtest(strategy_name, from_date, to_date, cash=10000.0, params=None):
             'StochasticOscillatorStrategy': StochasticOscillatorStrategy
         }
 
-        # Check if strategy exists
         if strategy_name not in strategies:
             raise ValueError(f"Strategy '{strategy_name}' is not implemented.")
 
-        # Add strategy to Cerebro
         cerebro.addstrategy(strategies[strategy_name], **(params or {}))
 
-        # Fetch data
         data = fetch_data('btc', from_date, to_date)
         if data is None or data.empty:
             raise ValueError(f"No data available for 'btc' between {from_date} and {to_date}")
 
-        # Add data feed to Cerebro
         data_feed = bt.feeds.PandasData(dataname=data)
         cerebro.adddata(data_feed)
         cerebro.broker.setcash(cash)
         cerebro.addanalyzer(MetricsAnalyzer, _name='metrics')
 
-        # Print initial state
-        print(f"Running backtest for {strategy_name} on 'btc'")
-        print(f"Data Range: {from_date} to {to_date}")
-        print(f"Starting Portfolio Value: {cerebro.broker.getvalue():.2f}")
+        logging.info(f"Running backtest for {strategy_name} on 'btc'")
+        logging.info(f"Data Range: {from_date} to {to_date}")
+        logging.info(f"Starting Portfolio Value: {cerebro.broker.getvalue():.2f}")
 
-        # Run backtest
         results = cerebro.run()
         if not results:
             raise RuntimeError("Backtesting returned None, check input parameters and data availability")
 
         metrics_analyzer = results[0].analyzers.metrics
-
-        # Log metrics
         metrics = metrics_analyzer.strategy.metrics
         mlflow.log_metric('ending_portfolio_value', cerebro.broker.getvalue())
         mlflow.log_metric('total_return', metrics['total_return'])
@@ -279,27 +330,27 @@ def run_backtest(strategy_name, from_date, to_date, cash=10000.0, params=None):
         mlflow.log_metric('max_drawdown', metrics['max_drawdown'])
         mlflow.log_metric('sharpe_ratio', metrics['sharpe_ratio'])
 
-        # Log additional artifacts (e.g., plot of the strategy or any other relevant file)
         artifact_path = '/home/moraa/Documents/10_academy/Week-9/Crypto-Trading-Engineering/MLOps/artifact'
         if os.path.exists(artifact_path):
             for filename in os.listdir(artifact_path):
                 file_path = os.path.join(artifact_path, filename)
                 mlflow.log_artifact(file_path)
 
-        # Print results
-        print(f"Ending Portfolio Value: {cerebro.broker.getvalue():.2f}")
-        print(f"Total Return: {metrics['total_return']:.2f}%")
-        print(f"Number of Trades: {metrics['trades']}")
-        print(f"Winning Trades: {metrics['winning_trades']}")
-        print(f"Losing Trades: {metrics['losing_trades']}")
-        print(f"Max Drawdown: {metrics['max_drawdown']:.2f}%")
-        print(f"Sharpe Ratio: {metrics['sharpe_ratio']:.2f}")
+        save_results_to_json(metrics)
 
-        # End MLflow run
+        logging.info(f"Ending Portfolio Value: {cerebro.broker.getvalue():.2f}")
+        logging.info(f"Total Return: {metrics['total_return']:.2f}%")
+        logging.info(f"Number of Trades: {metrics['trades']}")
+        logging.info(f"Winning Trades: {metrics['winning_trades']}")
+        logging.info(f"Losing Trades: {metrics['losing_trades']}")
+        logging.info(f"Max Drawdown: {metrics['max_drawdown']:.2f}%")
+        logging.info(f"Sharpe Ratio: {metrics['sharpe_ratio']:.2f}")
+
         mlflow.end_run()
 
         return metrics
+
     except Exception as e:
-        print(f"Error running backtest: {str(e)}")
+        logging.error(f"Error running backtest: {str(e)}")
         mlflow.end_run(status='FAILED')
         return None
