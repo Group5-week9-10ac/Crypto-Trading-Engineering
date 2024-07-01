@@ -8,6 +8,7 @@ import os
 import sys
 import logging
 from typing import Dict, Any
+import mlflow
 
 # Add the parent directory to the sys.path to ensure proper module resolution
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
@@ -28,6 +29,10 @@ db.init_app(app)
 
 # Initialize Flask-Migrate
 migrate = Migrate(app, db)
+
+# MLflow tracking URI configuration
+MLFLOW_TRACKING_URI = 'postgresql://postgres:Musy19@localhost:5432/wk9_trade_crypto'
+mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 
 def create_consumer(topic: str, broker_url: str) -> KafkaConsumer:
     """
@@ -73,22 +78,30 @@ def consume_scenes(consumer: KafkaConsumer) -> None:
                 continue
 
             # Call backtesting function
-            results = run_backtest(scene, from_date, to_date, initial_cash, parameters)
+            with mlflow.start_run():
+                mlflow.log_param('scene_id', scene_id)
+                mlflow.log_param('strategy_name', strategy_name)
+                mlflow.log_param('from_date', from_date)
+                mlflow.log_param('to_date', to_date)
+                mlflow.log_param('initial_cash', initial_cash)
+                mlflow.log_param('parameters', parameters)
 
-            if results is None:
-                logger.warning("Backtesting returned None, check input parameters and data availability")
-                continue
+                results = run_backtest(scene, from_date, to_date, initial_cash, parameters)
 
-            # Save results and publish them
-            save_backtest_results(scene_id, results)
-            publish_to_kafka(results)
+                if results is None:
+                    logger.warning("Backtesting returned None, check input parameters and data availability")
+                    continue
+
+                # Save results and publish them
+                save_backtest_results(scene_id, results)
+                publish_to_kafka(results)
 
         except Exception as e:
             logger.error(f"Error processing Kafka message: {e}")
 
 def save_backtest_results(scene_id: int, results: Dict[str, Any]) -> None:
     """
-    Save backtest results to the database.
+    Save backtest results to the database and log them with MLflow.
 
     Args:
         scene_id (int): The ID of the scene for which results are saved.
@@ -98,21 +111,32 @@ def save_backtest_results(scene_id: int, results: Dict[str, Any]) -> None:
         Exception: If an error occurs while saving the results.
     """
     try:
-        result = BacktestResult(
-            scene_id=scene_id,
-            strategy_name=results['strategy_name'],
-            symbol=results['symbol'],
-            from_date=results['from_date'],
-            to_date=results['to_date'],
-            total_return=results['total_return'],
-            trades=results['trades'],
-            winning_trades=results['winning_trades'],
-            losing_trades=results['losing_trades'],
-            max_drawdown=results['max_drawdown'],
-            sharpe_ratio=results['sharpe_ratio']
-        )
-        db.session.add(result)
-        db.session.commit()
+        with mlflow.start_run():
+            mlflow.log_param('scene_id', scene_id)
+            mlflow.log_metrics({
+                'total_return': results.get('total_return'),
+                'trades': results.get('trades'),
+                'winning_trades': results.get('winning_trades'),
+                'losing_trades': results.get('losing_trades'),
+                'max_drawdown': results.get('max_drawdown'),
+                'sharpe_ratio': results.get('sharpe_ratio')
+            })
+
+            result = BacktestResult(
+                scene_id=scene_id,
+                strategy_name=results['strategy_name'],
+                symbol=results['symbol'],
+                from_date=results['from_date'],
+                to_date=results['to_date'],
+                total_return=results['total_return'],
+                trades=results['trades'],
+                winning_trades=results['winning_trades'],
+                losing_trades=results['losing_trades'],
+                max_drawdown=results['max_drawdown'],
+                sharpe_ratio=results['sharpe_ratio']
+            )
+            db.session.add(result)
+            db.session.commit()
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error saving backtest results: {e}")
@@ -169,19 +193,27 @@ def api_run_backtest() -> Any:
             raise ValueError(f"Scene with ID {scene_id} not found in database")
 
         # Call backtesting function
-        results = run_backtest(scene, from_date, to_date, initial_cash, parameters)
+        with mlflow.start_run():
+            mlflow.log_param('scene_id', scene_id)
+            mlflow.log_param('strategy_name', strategy_name)
+            mlflow.log_param('from_date', from_date)
+            mlflow.log_param('to_date', to_date)
+            mlflow.log_param('initial_cash', initial_cash)
+            mlflow.log_param('parameters', parameters)
 
-        if results is None:
-            raise ValueError("Backtesting returned None, check input parameters and data availability")
+            results = run_backtest(scene, from_date, to_date, initial_cash, parameters)
 
-        # Save results and publish them
-        save_backtest_results(scene_id, results)
-        publish_to_kafka(results)
+            if results is None:
+                raise ValueError("Backtesting returned None, check input parameters and data availability")
 
-        return jsonify({
-            'status': 'success',
-            'results': results
-        })
+            # Save results and publish them
+            save_backtest_results(scene_id, results)
+            publish_to_kafka(results)
+
+            return jsonify({
+                'status': 'success',
+                'results': results
+            })
 
     except Exception as e:
         logger.error(f"Error running backtest: {e}")

@@ -6,11 +6,13 @@ import psycopg2
 import pandas as pd
 from dotenv import load_dotenv
 import os
+import mlflow
+import mlflow.sklearn
 
 # Load environment variables from .env file
 load_dotenv()
 
-# Define your strategy classes
+# Define your strategy classes (unchanged)
 
 class SMAStrategy(bt.Strategy):
     params = (('period', 15),)
@@ -90,7 +92,8 @@ class StochasticOscillatorStrategy(bt.Strategy):
         elif self.stoch.percK > 80:
             self.sell()
 
-# Metrics analyzer class
+# Metrics analyzer class (unchanged)
+
 class MetricsAnalyzer(bt.Analyzer):
     def start(self):
         self.returns = []
@@ -144,7 +147,8 @@ class MetricsAnalyzer(bt.Analyzer):
             'sharpe_ratio': self.sharpe_ratio
         }
 
-        # Insert results into PostgreSQL
+        # Insert results into PostgreSQL (unchanged)
+
         try:
             conn = psycopg2.connect(
                 dbname=os.getenv('POSTGRES_DB'),
@@ -177,7 +181,8 @@ class MetricsAnalyzer(bt.Analyzer):
         except Exception as e:
             print(f"Error storing results in PostgreSQL: {e}")
 
-# Function to fetch data from PostgreSQL
+# Function to fetch data from PostgreSQL (unchanged)
+
 def fetch_data(symbol, fromdate, todate):
     try:
         conn = psycopg2.connect(
@@ -208,6 +213,19 @@ def fetch_data(symbol, fromdate, todate):
 # Function to run backtest
 def run_backtest(strategy_name, from_date, to_date, cash=10000.0, params=None):
     try:
+        # Initialize MLflow
+        mlflow.set_experiment("Backtest_Experiments")  # Set the experiment name
+        mlflow.start_run()
+
+        # Log parameters
+        mlflow.log_param('strategy_name', strategy_name)
+        mlflow.log_param('from_date', from_date)
+        mlflow.log_param('to_date', to_date)
+        mlflow.log_param('initial_cash', cash)
+        if params:
+            for key, value in params.items():
+                mlflow.log_param(key, value)
+
         # Initialize Cerebro engine
         cerebro = bt.Cerebro()
         
@@ -251,16 +269,37 @@ def run_backtest(strategy_name, from_date, to_date, cash=10000.0, params=None):
 
         metrics_analyzer = results[0].analyzers.metrics
 
+        # Log metrics
+        metrics = metrics_analyzer.strategy.metrics
+        mlflow.log_metric('ending_portfolio_value', cerebro.broker.getvalue())
+        mlflow.log_metric('total_return', metrics['total_return'])
+        mlflow.log_metric('number_of_trades', metrics['trades'])
+        mlflow.log_metric('winning_trades', metrics['winning_trades'])
+        mlflow.log_metric('losing_trades', metrics['losing_trades'])
+        mlflow.log_metric('max_drawdown', metrics['max_drawdown'])
+        mlflow.log_metric('sharpe_ratio', metrics['sharpe_ratio'])
+
+        # Log additional artifacts (e.g., plot of the strategy or any other relevant file)
+        artifact_path = '/home/moraa/Documents/10_academy/Week-9/Crypto-Trading-Engineering/MLOps/artifact'
+        if os.path.exists(artifact_path):
+            for filename in os.listdir(artifact_path):
+                file_path = os.path.join(artifact_path, filename)
+                mlflow.log_artifact(file_path)
+
         # Print results
         print(f"Ending Portfolio Value: {cerebro.broker.getvalue():.2f}")
-        print(f"Total Return: {metrics_analyzer.strategy.metrics['total_return']:.2f}%")
-        print(f"Number of Trades: {metrics_analyzer.strategy.metrics['trades']}")
-        print(f"Winning Trades: {metrics_analyzer.strategy.metrics['winning_trades']}")
-        print(f"Losing Trades: {metrics_analyzer.strategy.metrics['losing_trades']}")
-        print(f"Max Drawdown: {metrics_analyzer.strategy.metrics['max_drawdown']:.2f}%")
-        print(f"Sharpe Ratio: {metrics_analyzer.strategy.metrics['sharpe_ratio']:.2f}")
+        print(f"Total Return: {metrics['total_return']:.2f}%")
+        print(f"Number of Trades: {metrics['trades']}")
+        print(f"Winning Trades: {metrics['winning_trades']}")
+        print(f"Losing Trades: {metrics['losing_trades']}")
+        print(f"Max Drawdown: {metrics['max_drawdown']:.2f}%")
+        print(f"Sharpe Ratio: {metrics['sharpe_ratio']:.2f}")
 
-        return metrics_analyzer.strategy.metrics
+        # End MLflow run
+        mlflow.end_run()
+
+        return metrics
     except Exception as e:
         print(f"Error running backtest: {str(e)}")
+        mlflow.end_run(status='FAILED')
         return None

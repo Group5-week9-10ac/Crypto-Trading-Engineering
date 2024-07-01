@@ -10,4 +10,4 @@ matplotlib
 pandas
 sqlalchemy
 apache-airflow
-
+mlflow
